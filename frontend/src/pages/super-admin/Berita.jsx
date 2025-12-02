@@ -21,11 +21,13 @@ const BeritaManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedBerita, setSelectedBerita] = useState(null);
   const [imageLoading, setImageLoading] = useState(true);
 const [imageError, setImageError] = useState(false);
+const [previewBerita, setPreviewBerita] = useState(null);
   
   // State untuk form
   const [formData, setFormData] = useState({
@@ -400,9 +402,9 @@ const uploadToCloudinary = async (file) => {
     }
   };
 
-  // Handler untuk preview berita
-  const handlePreviewBerita = (beritaSlug) => {
-    window.open(`${window.location.origin}/berita/${beritaSlug}`, '_blank');
+  const handlePreviewBerita = (berita) => {
+    setPreviewBerita(berita);
+    setShowPreviewModal(true);
   };
 
   // Handler untuk gambar
@@ -756,7 +758,7 @@ const uploadToCloudinary = async (file) => {
                             Edit
                           </button>
                           <button 
-                            onClick={() => handlePreviewBerita(item.slug)}
+                            onClick={() => handlePreviewBerita(item)}
                             className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
                             title="Preview Berita"
                           >
@@ -941,6 +943,177 @@ const uploadToCloudinary = async (file) => {
           </button>
         </div>
       </form>
+    </div>
+  </div>
+)}
+
+{/* PREVIEW MODAL */}
+{showPreviewModal && previewBerita && (
+  <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-75 flex items-center justify-center p-4 z-[100] overflow-y-auto">
+    <div className="bg-white rounded-xl w-full max-w-4xl my-8 animate-fadeIn">
+      {/* Modal Header */}
+      <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <h3 className="text-xl font-bold text-gray-800">Preview Berita</h3>
+        <button
+          onClick={() => {
+            setShowPreviewModal(false);
+            setPreviewBerita(null);
+          }}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Modal Content */}
+      <div className="max-h-[80vh] overflow-y-auto p-0">
+        <article className="bg-white rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="p-8 border-b border-gray-200">
+            <div className="flex flex-wrap items-center gap-4 mb-4">
+              <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                previewBerita.kategori === 'umum' ? 'bg-blue-100 text-blue-800' :
+                previewBerita.kategori === 'pengumuman' ? 'bg-green-100 text-green-800' :
+                'bg-purple-100 text-purple-800'
+              }`}>
+                {formatKategori(previewBerita.kategori)}
+              </span>
+              <div className="flex items-center space-x-2 text-gray-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>{formatDate(previewBerita.tanggal)}</span>
+              </div>
+              <div className="flex items-center space-x-2 text-gray-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span>Oleh: {previewBerita.penulis || 'Admin TPQ'}</span>
+              </div>
+            </div>
+            
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-6 leading-tight">
+              {previewBerita.judul}
+            </h1>
+          </div>
+
+          {/* Featured Image */}
+          {previewBerita.gambar_cover && (
+            <div className="relative">
+              <img 
+                src={getOptimizedImageUrl(previewBerita.gambar_cover, 1200)}
+                alt={previewBerita.judul}
+                className="w-full h-96 object-cover"
+                onLoad={() => setImageLoading(false)}
+                onError={(e) => {
+                  console.error('Gagal memuat gambar:', previewBerita.gambar_cover);
+                  e.target.src = 'https://via.placeholder.com/800x400?text=Gambar+Tidak+Tersedia';
+                  setImageLoading(false);
+                }}
+                loading="lazy"
+              />
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="p-8">
+            <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
+              {previewBerita.konten?.split('\n').map((paragraph, index) => (
+                <p key={index} className="mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+
+            {/* Article Footer */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>Status: 
+                    <span className={`ml-1 px-2 py-1 rounded-full text-xs font-semibold ${
+                      previewBerita.status === 'published' 
+                        ? 'bg-green-100 text-green-800' 
+                        : previewBerita.status === 'draft'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {formatStatus(previewBerita.status)}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <span className="flex items-center space-x-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Dibuat: {formatDate(previewBerita.dibuat_pada)}</span>
+                  </span>
+                  {previewBerita.diperbarui_pada && previewBerita.diperbarui_pada !== '-' && (
+                    <span className="flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>Update: {formatDate(previewBerita.diperbarui_pada)}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      {/* Modal Footer */}
+      <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+        <div className="text-sm text-gray-600">
+          <span className="font-medium">Catatan:</span> Ini adalah preview. Untuk melihat di halaman publik, 
+          {previewBerita.status === 'published' ? (
+            <button
+              onClick={() => {
+                window.open(`${window.location.origin}/berita/${previewBerita.slug}`, '_blank');
+                setShowPreviewModal(false);
+              }}
+              className="ml-1 text-blue-600 hover:text-blue-800 font-medium"
+            >
+              buka di tab baru
+            </button>
+          ) : (
+            <span className="ml-1 text-yellow-600">berita harus dipublish terlebih dahulu</span>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowPreviewModal(false);
+              setPreviewBerita(null);
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Tutup
+          </button>
+          {previewBerita.status === 'draft' && (
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                openPublishModal(previewBerita);
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Publish Berita
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   </div>
 )}

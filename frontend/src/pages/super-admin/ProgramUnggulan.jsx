@@ -19,9 +19,11 @@ const ProgramUnggulanManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAktifModal, setShowAktifModal] = useState(false);
   const [showNonaktifModal, setShowNonaktifModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedProgram, setSelectedProgram] = useState(null);
+  const [previewProgram, setPreviewProgram] = useState(null);
   
   // State untuk form
   const [formData, setFormData] = useState({
@@ -361,8 +363,9 @@ const ProgramUnggulanManagement = () => {
   };
 
   // Handler untuk preview program
-  const handlePreviewProgram = (programSlug) => {
-    window.open(`${window.location.origin}/program/${programSlug}`, '_blank');
+  const handlePreviewProgram = (program) => {
+    setPreviewProgram(program);
+    setShowPreviewModal(true);
   };
 
   // Filter program
@@ -669,13 +672,13 @@ const ProgramUnggulanManagement = () => {
                               Edit
                             </button>
                             <button 
-                              onClick={() => handlePreviewProgram(item.slug)}
-                              className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
-                              title="Preview Program"
-                            >
-                              {icons.preview}
-                              Preview
-                            </button>
+                                onClick={() => handlePreviewProgram(item)}
+                                className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
+                                title="Preview Program"
+                              >
+                                {icons.preview}
+                                Preview
+                              </button>
                             {item.status === 'nonaktif' ? (
                               <button 
                                 onClick={() => openAktifModal(item)}
@@ -812,6 +815,250 @@ const ProgramUnggulanManagement = () => {
             </div>
           </div>
         )}
+
+        {/* PREVIEW MODAL PROGRAM */}
+{showPreviewModal && previewProgram && (
+  <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-75 flex items-center justify-center p-4 z-[100] overflow-y-auto">
+    <div className="bg-white rounded-xl w-full max-w-4xl my-8 animate-fadeIn">
+      {/* Modal Header */}
+      <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <h3 className="text-xl font-bold text-gray-800">Preview Program Unggulan</h3>
+        <button
+          onClick={() => {
+            setShowPreviewModal(false);
+            setPreviewProgram(null);
+          }}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Modal Content */}
+      <div className="max-h-[80vh] overflow-y-auto p-0">
+        <article className="bg-white rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="p-8 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                  previewProgram.status === 'aktif' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {formatStatus(previewProgram.status)}
+                </span>
+              </div>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">
+              {previewProgram.nama_program}
+            </h1>
+            <div className="text-gray-600">
+              <div className="flex items-center space-x-2 mb-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm">Update: {formatDate(previewProgram.diperbarui_pada)}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="text-sm">Oleh: {previewProgram.diupdate_oleh}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Deskripsi */}
+          <div className="p-8 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Deskripsi Program</h2>
+            <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg">
+              {previewProgram.deskripsi?.split('\n').map((paragraph, index) => (
+                <p key={index} className="mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Fitur Program */}
+          {(() => {
+            const fiturList = parseFitur(previewProgram.fitur);
+            if (fiturList.length > 0) {
+              return (
+                <div className="p-8 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-800 mb-4">Fitur Program</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fiturList.map((fitur, index) => (
+                      <div key={index} className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <div className="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mt-1">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-gray-700">{fitur}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Detail Info */}
+          <div className="p-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Informasi Detail</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-gray-800 mb-3">Informasi Publikasi</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Status Program</span>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      previewProgram.status === 'aktif' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {formatStatus(previewProgram.status)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Jumlah Fitur</span>
+                    <span className="text-sm font-medium text-blue-600">
+                      {parseFitur(previewProgram.fitur).length} fitur
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">URL Slug</span>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
+                      {previewProgram.slug}
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-gray-800 mb-3">Informasi Sistem</h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Dibuat Pada</span>
+                    <span className="text-sm text-gray-800">
+                      {formatDate(previewProgram.dibuat_pada)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Terakhir Update</span>
+                    <span className="text-sm text-gray-800">
+                      {formatDate(previewProgram.diperbarui_pada)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Diupdate Oleh</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {previewProgram.diupdate_oleh}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      {/* Modal Footer dengan Quick Actions */}
+      <div className="border-t border-gray-200 bg-gray-50">
+        {/* Quick Actions */}
+        <div className="p-4 border-b border-gray-200">
+          <h4 className="font-semibold text-gray-800 mb-3">Aksi Cepat</h4>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                openEditModal(previewProgram);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Program
+            </button>
+            {previewProgram.status === 'nonaktif' ? (
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false);
+                  openAktifModal(previewProgram);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Aktifkan Program
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowPreviewModal(false);
+                  openNonaktifModal(previewProgram);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Nonaktifkan
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                openDeleteModal(previewProgram);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Hapus Program
+            </button>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex justify-between items-center p-6">
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">Catatan:</span> Ini adalah preview tampilan program.
+            {previewProgram.status === 'aktif' ? (
+              <span className="ml-1 text-green-600">Program aktif dan dapat dilihat publik.</span>
+            ) : (
+              <span className="ml-1 text-red-600">Program nonaktif dan tidak ditampilkan ke publik.</span>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                setPreviewProgram(null);
+              }}
+              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              Tutup Preview
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* EDIT MODAL */}
         {showEditModal && selectedProgram && (

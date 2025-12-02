@@ -19,10 +19,12 @@ const FasilitasManagement = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAktifModal, setShowAktifModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showNonaktifModal, setShowNonaktifModal] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedFasilitas, setSelectedFasilitas] = useState(null);
+  const [previewFasilitas, setPreviewFasilitas] = useState(null);
   
   // State untuk form
   const [formData, setFormData] = useState({
@@ -446,8 +448,9 @@ const FasilitasManagement = () => {
   };
 
   // Handler untuk preview fasilitas
-  const handlePreviewFasilitas = (fasilitasSlug) => {
-    window.open(`${window.location.origin}/fasilitas/${fasilitasSlug}`, '_blank');
+  const handlePreviewFasilitas = (fasilitas) => {
+    setPreviewFasilitas(fasilitas);
+    setShowPreviewModal(true);
   };
 
   // Filter fasilitas
@@ -784,13 +787,13 @@ const FasilitasManagement = () => {
                             Edit
                           </button>
                           <button 
-                            onClick={() => handlePreviewFasilitas(item.slug)}
-                            className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
-                            title="Preview Fasilitas"
-                          >
-                            {icons.preview}
-                            Preview
-                          </button>
+                              onClick={() => handlePreviewFasilitas(item)}
+                              className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
+                              title="Preview Fasilitas"
+                            >
+                              {icons.preview}
+                              Preview
+                            </button>
                           {item.status === 'nonaktif' ? (
                             <button 
                               onClick={() => openAktifModal(item)}
@@ -960,6 +963,196 @@ const FasilitasManagement = () => {
             </div>
           </div>
         )}
+
+        {/* PREVIEW MODAL FASILITAS */}
+{showPreviewModal && previewFasilitas && (
+  <div className="fixed inset-0 backdrop-blur drop-shadow-2xl bg-opacity-75 flex items-center justify-center p-4 z-[100] overflow-y-auto">
+    <div className="bg-white rounded-xl w-full max-w-4xl my-8 animate-fadeIn">
+      {/* Modal Header */}
+      <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <h3 className="text-xl font-bold text-gray-800">Preview Fasilitas</h3>
+        <button
+          onClick={() => {
+            setShowPreviewModal(false);
+            setPreviewFasilitas(null);
+          }}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Modal Content */}
+      <div className="max-h-[80vh] overflow-y-auto p-0">
+        <article className="bg-white rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="p-8 border-b border-gray-200">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">
+                  {getIconPreview(previewFasilitas.icon)}
+                </span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800 mb-2">
+                  {previewFasilitas.judul}
+                </h1>
+                <div className="flex flex-wrap items-center gap-4">
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    previewFasilitas.status === 'aktif' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {formatStatus(previewFasilitas.status)}
+                  </span>
+                  <div className="flex items-center space-x-2 text-gray-500">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <span>Urutan: {previewFasilitas.urutan_tampil}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-8">
+            <div className="space-y-6">
+              {/* Icon Info */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Icon Fasilitas</h3>
+                <div className="flex items-center space-x-4">
+                  <div className="text-4xl">
+                    {getIconPreview(previewFasilitas.icon)}
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">
+                      <strong>Nama:</strong> {previewFasilitas.icon}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <strong>Preview SVG:</strong>
+                    </p>
+                    <div className="mt-2 text-green-600">
+                      {getIconSvg(previewFasilitas.icon)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deskripsi */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Deskripsi Fasilitas</h3>
+                <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg">
+                  {previewFasilitas.deskripsi?.split('\n').map((paragraph, index) => (
+                    <p key={index} className="mb-4">
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Detail Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Informasi Publikasi</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Status</span>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        previewFasilitas.status === 'aktif' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {formatStatus(previewFasilitas.status)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Urutan Tampil</span>
+                      <span className="text-sm font-medium text-gray-800">
+                        #{previewFasilitas.urutan_tampil}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-3">Informasi Sistem</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Terakhir Diupdate</span>
+                      <span className="text-sm text-gray-800">
+                        {formatDate(previewFasilitas.diperbarui_pada)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Oleh</span>
+                      <span className="text-sm font-medium text-gray-800">
+                        {previewFasilitas.diupdate_oleh}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Dibuat Pada</span>
+                      <span className="text-sm text-gray-800">
+                        {formatDate(previewFasilitas.dibuat_pada)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      {/* Modal Footer */}
+      <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
+        <div className="text-sm text-gray-600">
+          <span className="font-medium">Catatan:</span> Ini adalah preview tampilan fasilitas.
+          {previewFasilitas.status === 'aktif' ? (
+            <span className="ml-1 text-green-600">Fasilitas aktif dan dapat dilihat publik.</span>
+          ) : (
+            <span className="ml-1 text-red-600">Fasilitas nonaktif dan tidak ditampilkan ke publik.</span>
+          )}
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowPreviewModal(false);
+              setPreviewFasilitas(null);
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Tutup
+          </button>
+          {previewFasilitas.status === 'nonaktif' ? (
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                openAktifModal(previewFasilitas);
+              }}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Aktifkan Fasilitas
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setShowPreviewModal(false);
+                openNonaktifModal(previewFasilitas);
+              }}
+              className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              Nonaktifkan
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* EDIT MODAL */}
         {showEditModal && selectedFasilitas && (

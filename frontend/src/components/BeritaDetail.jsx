@@ -12,26 +12,49 @@ const BeritaDetail = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-  // Fetch detail berita
+  // Fungsi untuk optimasi URL Cloudinary
+  const getOptimizedImageUrl = (url, width = 800, height = 400) => {
+    if (!url) return null;
+    
+    // Jika URL sudah dari Cloudinary, optimalkan
+    if (url.includes('cloudinary.com') && url.includes('upload')) {
+      const parts = url.split('/upload/');
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/w_${width},h_${height},c_fill,g_auto,q_auto,f_auto/${parts[1]}`;
+      }
+    }
+    
+    // Jika URL dari local server (old format)
+    if (url && !url.startsWith('http') && !url.includes('cloudinary.com')) {
+      return `${API_URL}/image/berita/${url}`;
+    }
+    
+    return url;
+  };
+
+  // Fetch detail berita menggunakan endpoint yang benar
   const fetchBeritaDetail = async () => {
     try {
       setLoading(true);
       setError('');
       
-      // Cari berita dari list dulu, jika tidak ada fetch by slug
-      const listResponse = await fetch(`${API_URL}/api/berita?limit=100`);
+      // Gunakan endpoint yang sesuai: /api/berita/:slug
+      const response = await fetch(`${API_URL}/api/berita/${slug}`);
       
-      if (listResponse.ok) {
-        const listData = await listResponse.json();
-        const foundBerita = listData.data?.find(item => item.slug === slug);
-        
-        if (foundBerita) {
-          setBerita(foundBerita);
-        } else {
+      if (!response.ok) {
+        if (response.status === 404) {
           throw new Error('Berita tidak ditemukan');
         }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Data berita detail:', data); // Debug log
+      
+      if (data.data) {
+        setBerita(data.data);
       } else {
-        throw new Error('Gagal memuat data berita');
+        throw new Error('Data berita tidak valid');
       }
 
     } catch (err) {
@@ -43,9 +66,64 @@ const BeritaDetail = () => {
     }
   };
 
+  // Fallback function jika endpoint /berita/:slug tidak berhasil
+  const fetchBeritaFallback = async () => {
+    try {
+      console.log('Mencoba fallback: fetch semua berita');
+      
+      const response = await fetch(`${API_URL}/api/berita?limit=100`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.data && Array.isArray(data.data)) {
+        // Cari berita berdasarkan slug
+        const foundBerita = data.data.find(item => {
+          // Exact match
+          if (item.slug === slug) return true;
+          // Case insensitive
+          if (item.slug && item.slug.toLowerCase() === slug.toLowerCase()) return true;
+          // ID match
+          if (item.id_berita === slug) return true;
+          return false;
+        });
+        
+        if (foundBerita) {
+          setBerita(foundBerita);
+        } else {
+          throw new Error('Berita tidak ditemukan');
+        }
+      } else {
+        throw new Error('Format data tidak valid');
+      }
+
+    } catch (err) {
+      console.error('Error fetching berita fallback:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     if (slug) {
-      fetchBeritaDetail();
+      const loadBerita = async () => {
+        try {
+          // Pertama coba endpoint khusus
+          await fetchBeritaDetail();
+        } catch (error) {
+          console.log('Endpoint khusus gagal, mencoba fallback...');
+          try {
+            await fetchBeritaFallback();
+          } catch (fallbackError) {
+            setError(fallbackError.message);
+            setBerita(null);
+          }
+        }
+      };
+      
+      loadBerita();
     }
   }, [slug]);
 
@@ -86,6 +164,12 @@ const BeritaDetail = () => {
       'acara': 'bg-green-100 text-green-800 border border-green-200'
     };
     return colorMap[kategori] || 'bg-gray-100 text-gray-800 border border-gray-200';
+  };
+
+  // Handle image error
+  const handleImageError = (e) => {
+    console.error('Gagal memuat gambar berita');
+    e.target.src = 'https://via.placeholder.com/800x400?text=Gambar+Tidak+Tersedia';
   };
 
   if (loading) {
@@ -155,6 +239,8 @@ const BeritaDetail = () => {
     );
   }
 
+  const imageUrl = getOptimizedImageUrl(berita.gambar_cover, 1200, 600);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
       {/* Breadcrumb */}
@@ -201,15 +287,14 @@ const BeritaDetail = () => {
               </div>
 
               {/* Featured Image */}
-              {berita.gambar_cover && (
+              {imageUrl && (
                 <div className="relative">
                   <img 
-                    src={`${API_URL}/image/berita/${berita.gambar_cover}`}
+                    src={imageUrl}
                     alt={berita.judul}
                     className="w-full h-96 object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/800x400?text=Gambar+Tidak+Tersedia';
-                    }}
+                    onError={handleImageError}
+                    loading="lazy"
                   />
                 </div>
               )}

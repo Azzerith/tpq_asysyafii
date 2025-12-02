@@ -39,6 +39,26 @@ const BeritaList = () => {
     fetchBerita();
   }, []);
 
+  // Fungsi untuk optimasi URL Cloudinary
+  const getOptimizedImageUrl = (url, width = 400, height = 200) => {
+    if (!url) return null;
+    
+    // Jika URL sudah dari Cloudinary, optimalkan
+    if (url.includes('cloudinary.com') && url.includes('upload')) {
+      const parts = url.split('/upload/');
+      if (parts.length === 2) {
+        return `${parts[0]}/upload/w_${width},h_${height},c_fill,g_auto,q_auto,f_auto/${parts[1]}`;
+      }
+    }
+    
+    // Jika URL dari local server (old format)
+    if (url && !url.startsWith('http') && !url.includes('cloudinary.com')) {
+      return `${API_URL}/image/berita/${url}`;
+    }
+    
+    return url;
+  };
+
   // Format tanggal
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -73,6 +93,10 @@ const BeritaList = () => {
       'acara': 'bg-green-100 text-green-800'
     };
     return colorMap[kategori] || 'bg-gray-100 text-gray-800';
+  };
+  const handleImageError = (e) => {
+    console.error('Gagal memuat gambar berita');
+    e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
   };
 
   if (loading) {
@@ -154,69 +178,72 @@ const BeritaList = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {berita.map((item) => (
-              <article 
-                key={item.id_berita} 
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 hover-lift"
-              >
-                <div className="relative overflow-hidden">
-                  {item.gambar_cover ? (
-                    <img 
-                      src={`${API_URL}/image/berita/${item.gambar_cover}`}
-                      alt={item.judul}
-                      className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-48 bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center">
-                      <svg className="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9m0 0v3m0-3a2 2 0 012-2h2a2 2 0 012 2m-6 5v6m4-3H9" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="p-6">
-                  <div className={`text-sm font-medium px-3 py-1 rounded-full inline-block mb-4 ${getKategoriColor(item.kategori)}`}>
-                    {formatKategori(item.kategori)}
+            {berita.map((item) => {
+              const imageUrl = getOptimizedImageUrl(item.gambar_cover);
+              
+              return (
+                <article 
+                  key={item.id_berita} 
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 hover-lift"
+                >
+                  <div className="relative overflow-hidden h-48">
+                    {imageUrl ? (
+                      <img 
+                        src={imageUrl}
+                        alt={item.judul}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        onError={handleImageError}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 flex items-center justify-center">
+                        <svg className="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9m0 0v3m0-3a2 2 0 012-2h2a2 2 0 012 2m-6 5v6m4-3H9" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                   
-                  <h3 className="text-2xl font-bold text-green-800 mb-3 line-clamp-2">
-                    {item.judul}
-                  </h3>
-                  
-                  <p className="text-green-600 mb-4 line-clamp-3">
-                    {item.konten?.substring(0, 120)}...
-                  </p>
-                  
-                  <div className="flex items-center justify-between text-sm text-green-700 mb-4">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      <span>{item.penulis?.nama_lengkap || 'Admin TPQ'}</span>
+                  <div className="p-6">
+                    <div className={`text-sm font-medium px-3 py-1 rounded-full inline-block mb-4 ${getKategoriColor(item.kategori)}`}>
+                      {formatKategori(item.kategori)}
                     </div>
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>{formatDate(item.tanggal_publikasi)}</span>
+                    
+                    <h3 className="text-2xl font-bold text-green-800 mb-3 line-clamp-2">
+                      {item.judul}
+                    </h3>
+                    
+                    <p className="text-green-600 mb-4 line-clamp-3">
+                      {item.konten?.substring(0, 120)}...
+                    </p>
+                    
+                    <div className="flex items-center justify-between text-sm text-green-700 mb-4">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>{item.penulis?.nama_lengkap || 'Admin TPQ'}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>{formatDate(item.tanggal_publikasi)}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="text-center">
-                    <Link 
-                      to={`/berita/${item.slug}`}
-                      className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 w-full inline-block"
-                    >
-                      Baca Selengkapnya
-                    </Link>
+                    <div className="text-center">
+                      <Link 
+                        to={`/berita/${item.slug}`}
+                        className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 w-full inline-block"
+                      >
+                        Baca Selengkapnya
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const BeritaManagement = () => {
   const { user: currentUser } = useAuth();
@@ -14,7 +15,7 @@ const BeritaManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [kategoriFilter, setKategoriFilter] = useState('all');
 
-  // State untuk modal - SEPERTI DI DATADONASI
+  // State untuk modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -23,8 +24,10 @@ const BeritaManagement = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState({ title: '', message: '', type: '' });
   const [selectedBerita, setSelectedBerita] = useState(null);
+  const [imageLoading, setImageLoading] = useState(true);
+const [imageError, setImageError] = useState(false);
   
-  // State untuk form - SEPERTI DI DATADONASI (sederhana, tidak pakai object kompleks)
+  // State untuk form
   const [formData, setFormData] = useState({
     judul: '',
     kategori: 'umum',
@@ -33,14 +36,72 @@ const BeritaManagement = () => {
   });
   const [gambarCover, setGambarCover] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0); // Progress bar
+  const [isUploading, setIsUploading] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  
+  // Cloudinary Configuration
+  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUD_NAME;
+  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_UPLOAD_PRESET || 'berita_upload';
+  const CLOUDINARY_API_KEY = import.meta.env.VITE_API_KEY;
+  const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
-  // Function hasPermission lokal
   const hasPermission = () => {
     if (!currentUser) return false;
     return currentUser.role === 'super_admin';
   };
+
+ // Fungsi untuk upload langsung ke Cloudinary dan mengembalikan URL
+const uploadToCloudinary = async (file) => {
+  setIsUploading(true);
+  setUploadProgress(0);
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('api_key', CLOUDINARY_API_KEY);
+    formData.append('folder', 'berita');
+    formData.append('timestamp', (Date.now() / 1000).toString());
+    
+    // Optional: Tambahkan tags
+    formData.append('tags', 'berita,tpq,website');
+    
+    const response = await axios.post(CLOUDINARY_URL, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        );
+        setUploadProgress(percentCompleted);
+      }
+    });
+
+    if (response.data.secure_url) {
+      console.log('Upload berhasil:', response.data);
+      // Kembalikan URL string dan public_id saja
+      return {
+        url: response.data.secure_url,
+        publicId: response.data.public_id,
+        format: response.data.format,
+        width: response.data.width,
+        height: response.data.height,
+        bytes: response.data.bytes
+      };
+    } else {
+      throw new Error('Gagal mendapatkan URL gambar');
+    }
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    throw new Error(`Upload gambar gagal: ${error.response?.data?.error?.message || error.message}`);
+  } finally {
+    setIsUploading(false);
+    setUploadProgress(0);
+  }
+};
 
   // Fetch berita dari API
   const fetchBerita = async () => {
@@ -78,7 +139,7 @@ const BeritaManagement = () => {
         status: item.status,
         kategori: item.kategori,
         konten: item.konten,
-        gambar_cover: item.gambar_cover ? `/image/berita/${item.gambar_cover}` : null,
+        gambar_cover: item.gambar_cover, // Sekarang ini adalah URL Cloudinary
         dibuat_pada: item.dibuat_pada,
         diperbarui_pada: item.diperbarui_pada,
       }));
@@ -94,7 +155,6 @@ const BeritaManagement = () => {
     }
   };
 
-  // Check if current user has permission to access this page
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
@@ -109,13 +169,13 @@ const BeritaManagement = () => {
     fetchBerita();
   }, [currentUser, navigate]);
 
-  // Show alert modal - SEPERTI DI DATADONASI
+  // Show alert modal
   const showAlert = (title, message, type = 'success') => {
     setAlertMessage({ title, message, type });
     setShowAlertModal(true);
   };
 
-  // Reset form - SEPERTI DI DATADONASI
+  // Reset form
   const resetForm = () => {
     setFormData({
       judul: '',
@@ -125,9 +185,10 @@ const BeritaManagement = () => {
     });
     setGambarCover(null);
     setImagePreview(null);
+    setUploadProgress(0);
   };
 
-  // Modal handlers - SEPERTI DI DATADONASI
+  // Modal handlers
   const openCreateModal = () => {
     resetForm();
     setShowCreateModal(true);
@@ -142,7 +203,8 @@ const BeritaManagement = () => {
       status: berita.status
     });
     setGambarCover(null);
-    setImagePreview(berita.gambar_cover ? `${API_URL}${berita.gambar_cover}` : null);
+    // Jika gambar_cover adalah URL Cloudinary, gunakan langsung
+    setImagePreview(berita.gambar_cover || null);
     setShowEditModal(true);
   };
 
@@ -158,37 +220,49 @@ const BeritaManagement = () => {
 
   const openImageModal = (berita) => {
     setSelectedBerita(berita);
+    setImageLoading(true);
+    setImageError(false);
     setShowImageModal(true);
   };
 
-  // Handler untuk create berita - SEPERTI DI DATADONASI
   const handleCreateBerita = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-
-      const formDataToSend = new FormData();
-      formDataToSend.append('judul', formData.judul);
-      formDataToSend.append('kategori', formData.kategori);
-      formDataToSend.append('konten', formData.konten);
-      formDataToSend.append('status', formData.status);
+      
+      let imageUrl = null;
+      
+      // Upload gambar ke Cloudinary jika ada
       if (gambarCover) {
-        formDataToSend.append('gambar_cover', gambarCover);
+        const cloudinaryResult = await uploadToCloudinary(gambarCover);
+        imageUrl = cloudinaryResult.url; // URL string dari Cloudinary
       }
-
+  
+      // Kirim data sebagai JSON (bukan FormData)
+      const dataToSend = {
+        judul: formData.judul,
+        kategori: formData.kategori,
+        konten: formData.konten,
+        status: formData.status,
+        gambar_cover: imageUrl // String URL atau null
+      };
+  
+      console.log('Data yang dikirim:', dataToSend); // Debug log
+  
       const response = await fetch(`${API_URL}/api/super-admin/berita`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json' // Pastikan ini JSON
         },
-        body: formDataToSend
+        body: JSON.stringify(dataToSend)
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
-
+  
       await fetchBerita();
       setShowCreateModal(false);
       resetForm();
@@ -201,36 +275,46 @@ const BeritaManagement = () => {
     }
   };
 
-  // Handler untuk update berita - SEPERTI DI DATADONASI
   const handleUpdateBerita = async (e) => {
     e.preventDefault();
     if (!selectedBerita) return;
-
+  
     try {
       setLoading(true);
-
-      const formDataToSend = new FormData();
-      formDataToSend.append('judul', formData.judul);
-      formDataToSend.append('kategori', formData.kategori);
-      formDataToSend.append('konten', formData.konten);
-      formDataToSend.append('status', formData.status);
+      
+      let imageUrl = selectedBerita.gambar_cover;
+      
+      // Upload gambar baru ke Cloudinary jika ada
       if (gambarCover) {
-        formDataToSend.append('gambar_cover', gambarCover);
+        const cloudinaryResult = await uploadToCloudinary(gambarCover);
+        imageUrl = cloudinaryResult.url; // URL string dari Cloudinary
       }
-
+  
+      // Kirim data sebagai JSON (bukan FormData)
+      const dataToSend = {
+        judul: formData.judul,
+        kategori: formData.kategori,
+        konten: formData.konten,
+        status: formData.status,
+        gambar_cover: imageUrl // String URL
+      };
+  
+      console.log('Data yang dikirim:', dataToSend); // Debug log
+  
       const response = await fetch(`${API_URL}/api/super-admin/berita/${selectedBerita.id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json' // Pastikan ini JSON
         },
-        body: formDataToSend
+        body: JSON.stringify(dataToSend)
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
-
+  
       await fetchBerita();
       setShowEditModal(false);
       resetForm();
@@ -243,8 +327,7 @@ const BeritaManagement = () => {
       setLoading(false);
     }
   };
-
-  // Handler untuk menghapus berita - SEPERTI DI DATADONASI
+  // Handler untuk menghapus berita
   const handleDeleteBerita = async () => {
     if (!selectedBerita) return;
 
@@ -276,7 +359,7 @@ const BeritaManagement = () => {
     }
   };
 
-  // Handler untuk publish berita - SEPERTI DI DATADONASI
+  // Handler untuk publish berita
   const handlePublishBerita = async () => {
     if (!selectedBerita) return;
 
@@ -296,7 +379,6 @@ const BeritaManagement = () => {
         throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
       }
 
-      // Update status berita di state
       setBerita(berita.map(item => 
         item.id === selectedBerita.id 
           ? { 
@@ -334,9 +416,9 @@ const BeritaManagement = () => {
         return;
       }
   
-      // Validasi ukuran file (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        showAlert('Error', 'Ukuran file terlalu besar. Maksimal 5MB.', 'error');
+      // Validasi ukuran file (max 10MB untuk Cloudinary)
+      if (file.size > 10 * 1024 * 1024) {
+        showAlert('Error', 'Ukuran file terlalu besar. Maksimal 10MB.', 'error');
         return;
       }
   
@@ -349,6 +431,18 @@ const BeritaManagement = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  // Optimize Cloudinary URL untuk tampilan
+  const getOptimizedImageUrl = (url, width = 800) => {
+    if (!url || !url.includes('cloudinary.com')) return url;
+    
+    // Masukkan parameter transformation ke URL Cloudinary
+    const parts = url.split('/upload/');
+    if (parts.length === 2) {
+      return `${parts[0]}/upload/w_${width},c_limit,q_auto,f_auto/${parts[1]}`;
+    }
+    return url;
   };
 
   // Filter berita
@@ -710,7 +804,7 @@ const BeritaManagement = () => {
           </Link>
         </div>
 
-        {/* CREATE MODAL - SEPERTI DI DATADONASI */}
+        {/* CREATE MODAL */}
         {showCreateModal && (
           <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -748,35 +842,50 @@ const BeritaManagement = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Gambar Cover
-                    </label>
-                    <div className="flex items-center gap-4">
-                      <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
-                        {imagePreview ? (
-                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
-                          </div>
-                        )}
-                        <input 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleImageChange}
-                        />
-                      </label>
-                      <div className="flex-1">
-                        <p className="text-sm text-gray-600">
-                          Upload gambar cover untuk berita. Format yang didukung: JPG, PNG, GIF.
-                        </p>
-                      </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Gambar Cover
+            </label>
+            <div className="flex items-center gap-4">
+              <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                ) : (
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-xs text-gray-500 mt-2">Upload Gambar</p>
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </label>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600">
+                  Gambar akan diupload langsung ke Cloudinary. Format: JPG, PNG, GIF, WebP. Maks: 10MB.
+                </p>
+                {/* Progress Bar */}
+                {isUploading && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+          </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -808,25 +917,33 @@ const BeritaManagement = () => {
                   </div>
                 </div>
                 <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? 'Menyimpan...' : 'Simpan'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={loading || isUploading}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading || isUploading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                {isUploading ? 'Mengupload...' : 'Menyimpan...'}
+              </>
+            ) : 'Simpan'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
         {/* EDIT MODAL - SEPERTI DI DATADONASI */}
         {showEditModal && selectedBerita && (
@@ -1012,47 +1129,117 @@ const BeritaManagement = () => {
           </div>
         )}
 
-        {/* IMAGE MODAL - SEPERTI DI DATADONASI */}
-        {showImageModal && selectedBerita && (
-          <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Gambar Cover Berita</h3>
+        {/* IMAGE MODAL */}
+{showImageModal && selectedBerita && (
+  <div className="fixed inset-0 backdrop-blur drop-shadow-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold text-gray-800">Gambar Cover Berita</h3>
+        <button
+          onClick={() => setShowImageModal(false)}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      {selectedBerita.gambar_cover ? (
+        <div className="relative">
+          {/* Loading Overlay */}
+          {imageLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
+              <div className="flex flex-col items-center">
+                {/* Spinner Animation */}
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-3"></div>
+                <p className="text-gray-600 text-sm">Memuat gambar...</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Error Overlay */}
+          {imageError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-red-50 rounded-lg z-10">
+              <div className="flex flex-col items-center">
+                <svg className="w-12 h-12 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-600 text-center mb-4">Gagal memuat gambar</p>
                 <button
-                  onClick={() => setShowImageModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  onClick={() => {
+                    setImageLoading(true);
+                    setImageError(false);
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  Coba Lagi
                 </button>
               </div>
-              {selectedBerita.gambar_cover ? (
-                <div>
-                  <img 
-                    src={`${API_URL}${selectedBerita.gambar_cover}`}
-                    alt={selectedBerita.judul}
-                    className="w-full h-auto max-h-96 object-contain rounded-lg mb-2"
-                    onError={(e) => {
-                      console.error('Gagal memuat gambar:', `${API_URL}/image/berita/${selectedBerita.gambar_cover}`);
-                      e.target.src = 'https://via.placeholder.com/400x200?text=Gambar+Tidak+Tersedia';
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 text-center break-all">
-                    Path: {`${API_URL}${selectedBerita.gambar_cover}`}
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-gray-500">Tidak ada gambar cover untuk berita ini</p>
-                </div>
-              )}
             </div>
-          </div>
-        )}
+          )}
+          
+          {/* Gambar */}
+          <img 
+            src={getOptimizedImageUrl(selectedBerita.gambar_cover, 1200)}
+            alt={selectedBerita.judul}
+            className={`w-full h-auto max-h-96 object-contain rounded-lg mb-4 transition-opacity duration-300 ${
+              imageLoading ? 'opacity-0' : 'opacity-100'
+            }`}
+            onLoad={() => {
+              setImageLoading(false);
+              setImageError(false);
+            }}
+            onError={(e) => {
+              console.error('Gagal memuat gambar dari Cloudinary:', selectedBerita.gambar_cover);
+              setImageLoading(false);
+              setImageError(true);
+              e.target.src = 'https://via.placeholder.com/800x400?text=Gambar+Tidak+Tersedia';
+            }}
+          />
+          
+          {/* Info Gambar */}
+          {!imageLoading && !imageError && (
+            <div className="space-y-2 text-sm text-gray-600 animate-fadeIn">
+              <p><strong>Source:</strong> Cloudinary</p>
+              <p><strong>URL:</strong> 
+                <a 
+                  href={selectedBerita.gambar_cover} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 ml-1 break-all"
+                >
+                  {selectedBerita.gambar_cover.length > 100 
+                    ? `${selectedBerita.gambar_cover.substring(0, 100)}...` 
+                    : selectedBerita.gambar_cover}
+                </a>
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedBerita.gambar_cover);
+                  showAlert('Berhasil', 'URL gambar telah disalin ke clipboard', 'success');
+                }}
+                className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Salin URL
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center py-8 animate-fadeIn">
+          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p className="text-gray-500">Tidak ada gambar cover untuk berita ini</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
         {/* ALERT MODAL - SEPERTI DI DATADONASI */}
         {showAlertModal && (

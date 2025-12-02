@@ -17,7 +17,6 @@ import (
 var DB *gorm.DB
 
 func InitDB() {
-	// Ambil environment variables
 	user := os.Getenv("DB_USER")
 	pass := os.Getenv("DB_PASS")
 	host := os.Getenv("DB_HOST")

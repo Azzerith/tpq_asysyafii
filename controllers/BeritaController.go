@@ -1,10 +1,7 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,25 +20,24 @@ func NewBeritaController(db *gorm.DB) *BeritaController {
 	return &BeritaController{db: db}
 }
 
-// // CreateBeritaRequest struct untuk form-data
-// type CreateBeritaRequest struct {
-// 	Judul           string      `form:"judul"`
-// 	Konten          string      `form:"konten"`
-// 	Kategori        string      `form:"kategori"`  // Ubah dari models.KategoriBerita ke string
-// 	Status          string      `form:"status"`    // Ubah dari models.StatusBerita ke string
-// 	GambarCover     *string     `form:"gambar_cover,omitempty"`
-// 	TanggalPublikasi *time.Time `form:"tanggal_publikasi,omitempty"`
-// }
+// CreateBeritaRequest struct untuk JSON (bukan form-data)
+type CreateBeritaRequest struct {
+	Judul       string  `json:"judul" binding:"required"`
+	Konten      string  `json:"konten" binding:"required"`
+	Kategori    string  `json:"kategori" binding:"required"`
+	Status      string  `json:"status"`
+	GambarCover *string `json:"gambar_cover,omitempty"` // URL string dari Cloudinary
+}
 
-// // UpdateBeritaRequest struct untuk form-data
-// type UpdateBeritaRequest struct {
-// 	Judul           string      `form:"judul"`
-// 	Konten          string      `form:"konten"`
-// 	Kategori        string      `form:"kategori"`  // Ubah dari models.KategoriBerita ke string
-// 	Status          string      `form:"status"`    // Ubah dari models.StatusBerita ke string
-// 	GambarCover     *string     `form:"gambar_cover,omitempty"`
-// 	TanggalPublikasi *time.Time `form:"tanggal_publikasi,omitempty"`
-// }
+// UpdateBeritaRequest struct untuk JSON
+type UpdateBeritaRequest struct {
+	Judul       string  `json:"judul"`
+	Konten      string  `json:"konten"`
+	Kategori    string  `json:"kategori"`
+	Status      string  `json:"status"`
+	GambarCover *string `json:"gambar_cover,omitempty"` // URL string dari Cloudinary
+}
+
 // Helper function untuk check role admin
 func (ctrl *BeritaController) isAdmin(c *gin.Context) bool {
 	userRole, exists := c.Get("role")
@@ -77,71 +73,17 @@ func generateSlug(judul string) string {
 	return result.String()
 }
 
-// Helper function untuk upload gambar
-func (ctrl *BeritaController) uploadGambar(c *gin.Context) (string, error) {
-    file, err := c.FormFile("gambar_cover")
-    if err != nil {
-        return "", err
-    }
-
-    // Validasi tipe file
-    allowedTypes := map[string]bool{
-        "image/jpeg": true,
-        "image/jpg":  true,
-        "image/png":  true,
-        "image/gif":  true,
-        "image/webp": true,
-    }
-
-    fileHeader, _ := file.Open()
-    defer fileHeader.Close()
-
-    buffer := make([]byte, 512)
-    _, err = fileHeader.Read(buffer)
-    if err != nil {
-        return "", fmt.Errorf("gagal membaca file: %v", err)
-    }
-
-    contentType := http.DetectContentType(buffer)
-    if !allowedTypes[contentType] {
-        return "", fmt.Errorf("tipe file tidak diizinkan. Gunakan JPEG, PNG, GIF, atau WebP")
-    }
-
-    // Validasi ukuran file (max 5MB)
-    if file.Size > 5<<20 {
-        return "", fmt.Errorf("ukuran file terlalu besar. Maksimal 5MB")
-    }
-
-    // Buat nama file unik
-    ext := filepath.Ext(file.Filename)
-    filename := uuid.New().String() + ext
-    
-    // Gunakan path yang lebih reliable
-    uploadPath := "./image/berita/"
-    
-    // Pastikan folder exists
-    if err := os.MkdirAll(uploadPath, 0755); err != nil {
-        return "", fmt.Errorf("gagal membuat folder: %v", err)
-    }
-
-    // Debug: print path
-    fmt.Printf("Menyimpan gambar ke: %s\n", uploadPath+filename)
-
-    // Simpan file
-    fullPath := filepath.Join(uploadPath, filename)
-    if err := c.SaveUploadedFile(file, fullPath); err != nil {
-        return "", fmt.Errorf("gagal menyimpan file: %v", err)
-    }
-
-    // Verifikasi file tersimpan
-    if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-        return "", fmt.Errorf("file gagal disimpan: %v", err)
-    }
-
-    return filename, nil
+// Helper function untuk validasi URL Cloudinary
+func isValidCloudinaryURL(url string) bool {
+	if url == "" {
+		return true // URL kosong diperbolehkan (tidak ada gambar)
+	}
+	
+	// Validasi dasar: harus string dan mengandung cloudinary.com
+	return strings.Contains(url, "cloudinary.com") && strings.Contains(url, "upload")
 }
 
-// CreateBerita membuat berita baru
+// CreateBerita membuat berita baru (JSON input)
 func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 	// Hanya admin yang bisa create berita
 	if !ctrl.isAdmin(c) {
@@ -156,45 +98,41 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 		return
 	}
 
-	// Manual parsing form data
-	judul := c.PostForm("judul")
-	konten := c.PostForm("konten")
-	kategori := c.PostForm("kategori")
-	status := c.PostForm("status")
+	// Parse JSON request
+	var req CreateBeritaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request tidak valid: " + err.Error()})
+		return
+	}
 
 	// Validasi field required
-	if judul == "" {
+	if req.Judul == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Judul harus diisi"})
 		return
 	}
-	if konten == "" {
+	if req.Konten == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Konten harus diisi"})
 		return
 	}
-	if kategori == "" {
+	if req.Kategori == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Kategori harus diisi"})
 		return
 	}
 
-	// Upload gambar jika ada
-	var gambarCover *string
-    filename, err := ctrl.uploadGambar(c)
-    if err != nil && err.Error() != "http: no such file" {
-        fmt.Printf("Error upload gambar: %v\n", err) // Debug
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
-    if filename != "" {
-        gambarCover = &filename
-        fmt.Printf("Gambar berhasil diupload: %s\n", filename) // Debug
-    }
+	// Validasi URL gambar jika ada
+	if req.GambarCover != nil && *req.GambarCover != "" {
+		if !isValidCloudinaryURL(*req.GambarCover) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL gambar tidak valid. Harus dari Cloudinary"})
+			return
+		}
+	}
 
 	// Generate slug dari judul
-	slug := generateSlug(judul)
+	slug := generateSlug(req.Judul)
 
 	// Convert string ke custom type dan validasi kategori
 	var kategoriEnum models.KategoriBerita
-	switch kategori {
+	switch req.Kategori {
 	case "umum":
 		kategoriEnum = models.KategoriUmum
 	case "pengumuman":
@@ -208,8 +146,8 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 
 	// Convert string ke custom type dan validasi status
 	var statusEnum models.StatusBerita
-	if status != "" {
-		switch status {
+	if req.Status != "" {
+		switch req.Status {
 		case "draft":
 			statusEnum = models.StatusDraft
 		case "published":
@@ -234,22 +172,18 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 	// Buat berita
 	berita := models.Berita{
 		IDBerita:        uuid.New().String(),
-		Judul:           judul,
+		Judul:           req.Judul,
 		Slug:            slug,
-		Konten:          konten,
+		Konten:          req.Konten,
 		Kategori:        kategoriEnum,
 		Status:          statusEnum,
-		GambarCover:     gambarCover,
+		GambarCover:     req.GambarCover, // URL string dari Cloudinary
 		PenulisID:       adminID,
 		TanggalPublikasi: tanggalPublikasi,
 	}
 
 	// Simpan ke database
 	if err := ctrl.db.Create(&berita).Error; err != nil {
-		// Hapus file yang sudah diupload jika gagal save
-		if gambarCover != nil {
-			os.Remove("./image/berita/" + *gambarCover)
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat berita: " + err.Error()})
 		return
 	}
@@ -262,27 +196,6 @@ func (ctrl *BeritaController) CreateBerita(c *gin.Context) {
 		"data":    berita,
 	})
 }
-
-// func (ctrl *BeritaController) getUploadPath() string {
-//     // Coba beberapa kemungkinan path
-//     possiblePaths := []string{
-//         "./image/berita/",
-//         "../image/berita/",
-//         "./uploads/berita/",
-//         "image/berita/",
-//     }
-    
-//     for _, path := range possiblePaths {
-//         if _, err := os.Stat(path); !os.IsNotExist(err) {
-//             return path
-//         }
-//     }
-    
-//     // Buat folder default jika tidak ada
-//     defaultPath := "./image/berita/"
-//     os.MkdirAll(defaultPath, 0755)
-//     return defaultPath
-// }
 
 // GetBeritaByID mendapatkan berita berdasarkan ID (public access)
 func (ctrl *BeritaController) GetBeritaByID(c *gin.Context) {
@@ -344,7 +257,7 @@ func (ctrl *BeritaController) GetBeritaBySlug(c *gin.Context) {
 	})
 }
 
-/// UpdateBerita mengupdate berita (hanya admin)
+// UpdateBerita mengupdate berita (hanya admin) - JSON input
 func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 	// Hanya admin yang bisa update
 	if !ctrl.isAdmin(c) {
@@ -370,37 +283,33 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 		return
 	}
 
-	// Manual parsing form data
-	judul := c.PostForm("judul")
-	konten := c.PostForm("konten")
-	kategori := c.PostForm("kategori")
-	status := c.PostForm("status")
-
-	// Upload gambar baru jika ada
-	var newGambarCover *string
-	oldGambarCover := existingBerita.GambarCover
-
-	filename, err := ctrl.uploadGambar(c)
-	if err != nil && err.Error() != "http: no such file" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Parse JSON request
+	var req UpdateBeritaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request tidak valid: " + err.Error()})
 		return
 	}
-	if filename != "" {
-		newGambarCover = &filename
+
+	// Validasi URL gambar jika ada
+	if req.GambarCover != nil && *req.GambarCover != "" {
+		if !isValidCloudinaryURL(*req.GambarCover) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL gambar tidak valid. Harus dari Cloudinary"})
+			return
+		}
 	}
 
 	// Update fields
-	if judul != "" {
-		existingBerita.Judul = judul
+	if req.Judul != "" {
+		existingBerita.Judul = req.Judul
 		// Generate slug baru jika judul berubah
-		existingBerita.Slug = generateSlug(judul)
+		existingBerita.Slug = generateSlug(req.Judul)
 	}
-	if konten != "" {
-		existingBerita.Konten = konten
+	if req.Konten != "" {
+		existingBerita.Konten = req.Konten
 	}
-	if kategori != "" {
+	if req.Kategori != "" {
 		// Convert dan validasi kategori
-		switch kategori {
+		switch req.Kategori {
 		case "umum":
 			existingBerita.Kategori = models.KategoriUmum
 		case "pengumuman":
@@ -412,11 +321,13 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 			return
 		}
 	}
-	if status != "" {
+	if req.Status != "" {
 		// Convert dan validasi status
-		switch status {
+		switch req.Status {
 		case "draft":
 			existingBerita.Status = models.StatusDraft
+			// Reset tanggal publikasi jika kembali ke draft
+			existingBerita.TanggalPublikasi = nil
 		case "published":
 			existingBerita.Status = models.StatusPublished
 			// Set tanggal publikasi jika status berubah menjadi published
@@ -431,23 +342,17 @@ func (ctrl *BeritaController) UpdateBerita(c *gin.Context) {
 			return
 		}
 	}
-	if newGambarCover != nil {
-		existingBerita.GambarCover = newGambarCover
+	if req.GambarCover != nil {
+		// Hanya update jika ada perubahan
+		if existingBerita.GambarCover == nil || *existingBerita.GambarCover != *req.GambarCover {
+			existingBerita.GambarCover = req.GambarCover
+		}
 	}
 
 	// Simpan perubahan
 	if err := ctrl.db.Save(&existingBerita).Error; err != nil {
-		// Hapus file baru yang sudah diupload jika gagal save
-		if newGambarCover != nil {
-			os.Remove("./image/berita/" + *newGambarCover)
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate berita: " + err.Error()})
 		return
-	}
-
-	// Hapus file gambar lama jika ada gambar baru
-	if newGambarCover != nil && oldGambarCover != nil {
-		os.Remove("./image/berita/" + *oldGambarCover)
 	}
 
 	// Preload relations untuk response
@@ -483,11 +388,6 @@ func (ctrl *BeritaController) DeleteBerita(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data berita: " + err.Error()})
 		return
-	}
-
-	// Hapus file gambar jika ada
-	if berita.GambarCover != nil {
-		os.Remove("./image/berita/" + *berita.GambarCover)
 	}
 
 	// Hapus berita
@@ -608,9 +508,9 @@ func (ctrl *BeritaController) GetAllBerita(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": berita,
 		"meta": gin.H{
-			"page":      page,
-			"limit":     limit,
-			"total":     total,
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
 			"total_page": (int(total) + limit - 1) / limit,
 		},
 	})
@@ -667,9 +567,9 @@ func (ctrl *BeritaController) GetBeritaPublic(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"data": berita,
 		"meta": gin.H{
-			"page":      page,
-			"limit":     limit,
-			"total":     total,
+			"page":       page,
+			"limit":      limit,
+			"total":      total,
 			"total_page": (int(total) + limit - 1) / limit,
 		},
 	})

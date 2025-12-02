@@ -33,6 +33,15 @@ const InformasiTPQ = () => {
     type: 'success'
   });
 
+  // Konfigurasi Cloudinary
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_UPLOAD_PRESET || 'tpq_upload';
+const CLOUDINARY_API_KEY = import.meta.env.VITE_API_KEY;
+const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+const [uploadProgress, setUploadProgress] = useState(0);
+
   const popularSocialMedia = [
     {
       name: 'Instagram',
@@ -98,6 +107,109 @@ const InformasiTPQ = () => {
     setShowAlertModal(true);
   };
 
+  // Fungsi untuk upload logo ke Cloudinary menggunakan fetch
+const uploadLogoToCloudinary = async (file) => {
+  setIsUploadingLogo(true);
+  setUploadProgress(0);
+  
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'tpq');
+    formData.append('tags', 'tpq,logo,website');
+    
+    const response = await fetch(CLOUDINARY_URL, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error?.message || `Upload gagal: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.secure_url) {
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        format: result.format,
+        width: result.width,
+        height: result.height,
+        bytes: result.bytes
+      };
+    } else {
+      throw new Error('Gagal mendapatkan URL gambar');
+    }
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    throw new Error(`Upload logo gagal: ${error.message}`);
+  } finally {
+    setIsUploadingLogo(false);
+    setUploadProgress(0);
+  }
+};
+
+// Fungsi untuk upload dengan progress tracking
+const uploadLogoToCloudinaryWithProgress = async (file) => {
+  setIsUploadingLogo(true);
+  setUploadProgress(0);
+  
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    formData.append('folder', 'tpq');
+    formData.append('tags', 'tpq,logo,website');
+    
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) {
+        const percentCompleted = Math.round((event.loaded * 100) / event.total);
+        setUploadProgress(percentCompleted);
+      }
+    });
+    
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const result = JSON.parse(xhr.responseText);
+          if (result.secure_url) {
+            resolve({
+              url: result.secure_url,
+              publicId: result.public_id,
+              format: result.format,
+              width: result.width,
+              height: result.height,
+              bytes: result.bytes
+            });
+          } else {
+            reject(new Error('Gagal mendapatkan URL gambar'));
+          }
+        } catch (error) {
+          reject(new Error('Gagal parsing response'));
+        }
+      } else {
+        reject(new Error(`Upload gagal: ${xhr.status}`));
+      }
+    });
+    
+    xhr.addEventListener('error', () => {
+      reject(new Error('Upload gagal: network error'));
+    });
+    
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload dibatalkan'));
+    });
+    
+    xhr.open('POST', CLOUDINARY_URL);
+    xhr.send(formData);
+  });
+};
+
   // Fungsi untuk menutup modal alert
   const closeAlertModal = () => {
     setShowAlertModal(false);
@@ -138,7 +250,7 @@ const InformasiTPQ = () => {
         });
         
         if (result.data.logo) {
-          const logoUrl = `${API_URL}/image/tpq/${result.data.logo}`;
+          const logoUrl = `${result.data.logo}`;
           setLogoPreview(logoUrl);
         } else {
           setLogoPreview('');
@@ -189,87 +301,97 @@ const InformasiTPQ = () => {
   };
 
   // Handle logo file change
-  const handleLogoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-      if (!allowedTypes.includes(file.type)) {
-        setError('Format file tidak didukung. Gunakan JPEG, PNG, GIF, WebP, atau SVG.');
-        return;
-      }
-
-      if (file.size > 2 * 1024 * 1024) {
-        setError('Ukuran file terlalu besar. Maksimal 2MB.');
-        return;
-      }
-
-      setLogoFile(file);
-      setError('');
-      
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setLogoPreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
+const handleLogoChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Format file tidak didukung. Gunakan JPEG, PNG, GIF, WebP, atau SVG.');
+      return;
     }
-  };
 
+    if (file.size > 10 * 1024 * 1024) { // 10MB untuk Cloudinary
+      setError('Ukuran file terlalu besar. Maksimal 10MB.');
+      return;
+    }
+
+    setLogoFile(file);
+    setError('');
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  }
+};
   // Save informasi TPQ
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      setError('');
+const handleSave = async () => {
+  try {
+    setSaving(true);
+    setError('');
 
-      const formDataToSend = new FormData();
-      
-      Object.keys(formData).forEach(key => {
-        if (formData[key]) {
-          formDataToSend.append(key, formData[key]);
-        }
-      });
-
-      if (logoFile) {
-        formDataToSend.append('logo', logoFile);
-      }
-
-      const method = informasi ? 'PUT' : 'POST';
-      const endpoint = informasi 
-        ? `${API_URL}/api/super-admin/informasi-tpq/${informasi.id_tpq}`
-        : `${API_URL}/api/super-admin/informasi-tpq`;
-
-      const response = await fetch(endpoint, {
-        method: method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formDataToSend
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      setInformasi(result.data);
-      setIsEditing(false);
-      
-      if (logoFile && result.data.logo) {
-        setLogoPreview(`${API_URL}/image/tpq/${result.data.logo}`);
-        setLogoFile(null);
-      }
-
-      showAlert('Berhasil', 'Informasi TPQ berhasil disimpan!', 'success');
-
-    } catch (err) {
-      console.error('Error saving informasi TPQ:', err);
-      setError(`Gagal menyimpan informasi TPQ: ${err.message}`);
-    } finally {
-      setSaving(false);
+    let logoUrl = informasi?.logo || null;
+    
+    // Upload logo ke Cloudinary jika ada file baru
+    if (logoFile) {
+      const cloudinaryResult = await uploadLogoToCloudinary(logoFile);
+      logoUrl = cloudinaryResult.url;
     }
-  };
 
+    // Kirim data sebagai JSON (bukan FormData)
+    const dataToSend = {
+      nama_tpq: formData.nama_tpq,
+      tempat: formData.tempat || null,
+      visi: formData.visi || null,
+      misi: formData.misi || null,
+      deskripsi: formData.deskripsi || null,
+      no_telp: formData.no_telp || null,
+      email: formData.email || null,
+      alamat: formData.alamat || null,
+      link_alamat: formData.link_alamat || null,
+      hari_jam_belajar: formData.hari_jam_belajar || null,
+      logo: logoUrl // URL string dari Cloudinary
+    };
+
+    const method = informasi ? 'PUT' : 'POST';
+    const endpoint = informasi 
+      ? `${API_URL}/api/super-admin/informasi-tpq/${informasi.id_tpq}`
+      : `${API_URL}/api/super-admin/informasi-tpq`;
+
+    const response = await fetch(endpoint, {
+      method: method,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(dataToSend)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || `HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    setInformasi(result.data);
+    setIsEditing(false);
+    
+    if (logoUrl) {
+      setLogoPreview(logoUrl); // Simpan URL Cloudinary langsung
+    }
+    setLogoFile(null);
+
+    showAlert('Berhasil', 'Informasi TPQ berhasil disimpan!', 'success');
+
+  } catch (err) {
+    console.error('Error saving informasi TPQ:', err);
+    showAlert('Gagal', err.message || 'Gagal menyimpan informasi TPQ', 'error');
+  } finally {
+    setSaving(false);
+  }
+};
   // Delete informasi TPQ
   const handleDelete = async () => {
     if (!informasi) return;
@@ -313,6 +435,40 @@ const InformasiTPQ = () => {
     });
     setShowAlertModal(true);
   };
+
+  const handleImageError = (e) => {
+    console.error('Gagal memuat logo:', logoPreview);
+    e.target.style.display = 'none';
+    const fallbackDiv = e.target.nextSibling;
+    if (fallbackDiv) {
+      fallbackDiv.style.display = 'flex';
+    }
+  };
+
+  useEffect(() => {
+    fetchInformasiTPQ();
+    fetchSosialMedia();
+  }, []);
+
+  if (loading) {
+    return (
+      <AuthDashboardLayout title="Informasi TPQ">
+        <div className="p-6">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-64"></div>
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-32"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </AuthDashboardLayout>
+    );
+  }
 
   // SOSIAL MEDIA FUNCTIONS
   const handleSosmedInputChange = (e) => {
@@ -478,8 +634,9 @@ const InformasiTPQ = () => {
         hari_jam_belajar: informasi.hari_jam_belajar || ''
       });
       
+      // Simpan URL Cloudinary langsung
       if (informasi.logo) {
-        setLogoPreview(`${API_URL}/image/tpq/${informasi.logo}`);
+        setLogoPreview(informasi.logo);
       } else {
         setLogoPreview('');
       }
@@ -488,39 +645,38 @@ const InformasiTPQ = () => {
     setError('');
   };
 
-  const handleImageError = (e) => {
-    console.error('Gagal memuat logo:', logoPreview);
-    e.target.style.display = 'none';
-    const fallbackDiv = e.target.nextSibling;
-    if (fallbackDiv) {
-      fallbackDiv.style.display = 'flex';
-    }
-  };
-
-  useEffect(() => {
-    fetchInformasiTPQ();
-    fetchSosialMedia();
-  }, []);
-
-  if (loading) {
-    return (
-      <AuthDashboardLayout title="Informasi TPQ">
-        <div className="p-6">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-200 rounded w-64"></div>
-            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-32"></div>
-                  <div className="h-10 bg-gray-200 rounded"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </AuthDashboardLayout>
-    );
+  // Optimize Cloudinary URL untuk tampilan
+const getOptimizedLogoUrl = (url, width = 400) => {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  
+  // Masukkan parameter transformation ke URL Cloudinary
+  const parts = url.split('/upload/');
+  if (parts.length === 2) {
+    // Untuk logo, gunakan crop dan background putih
+    return `${parts[0]}/upload/w_${width},c_fill,ar_1:1,b_white/${parts[1]}`;
   }
+  return url;
+};
+
+// Update tampilan logo preview:
+{(logoPreview || informasi?.logo) && (
+  <div className="w-48 h-48 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center relative mb-4">
+    <img 
+      src={logoPreview || getOptimizedLogoUrl(informasi?.logo)} 
+      alt="Logo TPQ" 
+      className="w-full h-full object-cover"
+      onError={handleImageError}
+    />
+    <div className="hidden absolute inset-0 flex-col items-center justify-center text-gray-400 bg-gray-100">
+      <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <span className="text-sm mt-1">Gagal memuat logo</span>
+    </div>
+  </div>
+)}
+
+  
 
   return (
     <AuthDashboardLayout title="Informasi TPQ">
@@ -564,56 +720,85 @@ const InformasiTPQ = () => {
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Logo TPQ</label>
                     <div className="flex flex-col items-center">
-                      {(logoPreview || informasi?.logo) && (
-                        <div className="w-48 h-48 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center relative mb-4">
-                          <img 
-                            src={logoPreview} 
-                            alt="Logo TPQ" 
-                            className="w-full h-full object-cover"
-                            onError={handleImageError}
-                          />
-                          <div className="hidden absolute inset-0 flex-col items-center justify-center text-gray-400 bg-gray-100">
-                            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span className="text-sm mt-1">Gagal memuat logo</span>
-                          </div>
-                        </div>
-                      )}
-                      {isEditing && (
-                        <div className="w-full">
-                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 bg-gray-50">
-                            {logoPreview ? (
-                              <div className="text-center">
-                                <svg className="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                <p className="text-sm text-gray-600">Gambar siap diupload</p>
-                                <p className="text-xs text-gray-500">Klik untuk mengganti</p>
-                              </div>
-                            ) : (
-                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                <svg className="w-8 h-8 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {(logoPreview || informasi?.logo) && (
+                            <div className="w-48 h-48 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center relative mb-4">
+                              <img 
+                                src={logoPreview || informasi?.logo} 
+                                alt="Logo TPQ" 
+                                className="w-full h-full object-cover"
+                                onError={handleImageError}
+                              />
+                              <div className="hidden absolute inset-0 flex-col items-center justify-center text-gray-400 bg-gray-100">
+                                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                                <p className="text-sm text-gray-500">
-                                  <span className="font-semibold">Klik untuk upload</span>
-                                </p>
-                                <p className="text-xs text-gray-400">PNG, JPG, GIF up to 2MB</p>
+                                <span className="text-sm mt-1">Gagal memuat logo</span>
                               </div>
-                            )}
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*"
-                              onChange={handleLogoChange}
-                            />
-                          </label>
-                          <p className="text-xs text-gray-500 mt-2 text-center">
-                            Format: JPG, PNG, GIF, WebP, SVG. Maksimal 2MB.
-                          </p>
-                        </div>
-                      )}
+                            </div>
+                          )}
+                      {isEditing && (
+  <div className="w-full">
+    <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 bg-gray-50 ${isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''}`}>
+      {logoPreview ? (
+        <div className="text-center">
+          {isUploadingLogo ? (
+            <div className="w-full px-4">
+              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                <span>Uploading to Cloudinary...</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Jangan tutup halaman ini</p>
+            </div>
+          ) : (
+            <>
+              <svg className="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <p className="text-sm text-gray-600">Gambar siap diupload ke Cloudinary</p>
+              <p className="text-xs text-gray-500">Klik untuk mengganti</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+          {isUploadingLogo ? (
+            <>
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+              <p className="text-sm text-gray-600">Uploading to Cloudinary...</p>
+              <p className="text-xs text-gray-500">{uploadProgress}%</p>
+            </>
+          ) : (
+            <>
+              <svg className="w-8 h-8 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-sm text-gray-500">
+                <span className="font-semibold">Klik untuk upload ke Cloudinary</span>
+              </p>
+              <p className="text-xs text-gray-400">PNG, JPG, GIF, WebP up to 10MB</p>
+            </>
+          )}
+        </div>
+      )}
+      <input 
+        type="file" 
+        className="hidden" 
+        accept="image/*"
+        onChange={handleLogoChange}
+        disabled={isUploadingLogo}
+      />
+    </label>
+    <p className="text-xs text-gray-500 mt-2 text-center">
+      Format: JPG, PNG, GIF, WebP. Maksimal 10MB. Gambar akan diupload ke Cloudinary.
+    </p>
+  </div>
+)}
                     </div>
                   </div>
                   <div className="flex justify-center items-center mb-6">
@@ -629,19 +814,19 @@ const InformasiTPQ = () => {
                             Batal
                           </button>
                           <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                          >
-                            {saving ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Menyimpan...
-                              </>
-                            ) : (
-                              'Simpan Perubahan'
-                            )}
-                          </button>
+                          onClick={handleSave}
+                          disabled={saving || isUploadingLogo}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                          {saving || isUploadingLogo ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              {isUploadingLogo ? 'Mengupload Logo...' : 'Menyimpan...'}
+                            </>
+                          ) : (
+                            'Simpan Perubahan'
+                          )}
+                        </button>
                         </>
                       ) : (
                         <>

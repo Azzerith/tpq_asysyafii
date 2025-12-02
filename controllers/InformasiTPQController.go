@@ -1,10 +1,7 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"tpq_asysyafii/models"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +15,35 @@ type InformasiTPQController struct {
 
 func NewInformasiTPQController(db *gorm.DB) *InformasiTPQController {
 	return &InformasiTPQController{db: db}
+}
+
+// Request struct untuk JSON input
+type CreateInformasiTPQRequest struct {
+	NamaTPQ        string  `json:"nama_tpq" binding:"required"`
+	Tempat         *string `json:"tempat,omitempty"`
+	Visi           *string `json:"visi,omitempty"`
+	Misi           *string `json:"misi,omitempty"`
+	Deskripsi      *string `json:"deskripsi,omitempty"`
+	NoTelp         *string `json:"no_telp,omitempty"`
+	Email          *string `json:"email,omitempty"`
+	Alamat         *string `json:"alamat,omitempty"`
+	LinkAlamat     *string `json:"link_alamat,omitempty"`
+	HariJamBelajar *string `json:"hari_jam_belajar,omitempty"`
+	Logo           *string `json:"logo,omitempty"` // URL string dari Cloudinary
+}
+
+type UpdateInformasiTPQRequest struct {
+	NamaTPQ        string  `json:"nama_tpq"`
+	Tempat         *string `json:"tempat,omitempty"`
+	Visi           *string `json:"visi,omitempty"`
+	Misi           *string `json:"misi,omitempty"`
+	Deskripsi      *string `json:"deskripsi,omitempty"`
+	NoTelp         *string `json:"no_telp,omitempty"`
+	Email          *string `json:"email,omitempty"`
+	Alamat         *string `json:"alamat,omitempty"`
+	LinkAlamat     *string `json:"link_alamat,omitempty"`
+	HariJamBelajar *string `json:"hari_jam_belajar,omitempty"`
+	Logo           *string `json:"logo,omitempty"` // URL string dari Cloudinary
 }
 
 // Helper function untuk check role admin
@@ -39,69 +65,18 @@ func (ctrl *InformasiTPQController) getUserID(c *gin.Context) (string, bool) {
 	return userID.(string), true
 }
 
-// Helper function untuk upload logo
-func (ctrl *InformasiTPQController) uploadLogo(c *gin.Context) (string, error) {
-	file, err := c.FormFile("logo")
-	if err != nil {
-		return "", err
+// Helper function untuk validasi URL Cloudinary
+func isValidCloudinaryURLlogo(url string) bool {
+	if url == "" {
+		return true // URL kosong diperbolehkan (tidak ada logo)
 	}
-
-	// Validasi tipe file
-	allowedTypes := map[string]bool{
-		"image/jpeg": true,
-		"image/jpg":  true,
-		"image/png":  true,
-		"image/gif":  true,
-		"image/webp": true,
-		"image/svg+xml": true,
-	}
-
-	fileHeader, _ := file.Open()
-	defer fileHeader.Close()
-
-	buffer := make([]byte, 512)
-	_, err = fileHeader.Read(buffer)
-	if err != nil {
-		return "", fmt.Errorf("gagal membaca file: %v", err)
-	}
-
-	contentType := http.DetectContentType(buffer)
-	if !allowedTypes[contentType] {
-		return "", fmt.Errorf("tipe file tidak diizinkan. Gunakan JPEG, PNG, GIF, WebP, atau SVG")
-	}
-
-	// Validasi ukuran file (max 2MB)
-	if file.Size > 2<<20 {
-		return "", fmt.Errorf("ukuran file terlalu besar. Maksimal 2MB")
-	}
-
-	// Buat nama file unik
-	ext := filepath.Ext(file.Filename)
-	filename := "logo_" + uuid.New().String() + ext
 	
-	// Path untuk menyimpan logo
-	uploadPath := "./image/tpq/"
-	
-	// Pastikan folder exists
-	if err := os.MkdirAll(uploadPath, 0755); err != nil {
-		return "", fmt.Errorf("gagal membuat folder: %v", err)
-	}
-
-	// Simpan file
-	fullPath := filepath.Join(uploadPath, filename)
-	if err := c.SaveUploadedFile(file, fullPath); err != nil {
-		return "", fmt.Errorf("gagal menyimpan file: %v", err)
-	}
-
-	// Verifikasi file tersimpan
-	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		return "", fmt.Errorf("file gagal disimpan: %v", err)
-	}
-
-	return filename, nil
+	// Validasi dasar: harus string dan mengandung cloudinary.com
+	return len(url) > 0 && len(url) < 1000 && 
+	       (url == "" || (url[:4] == "http" && (url[:5] == "https" || url[:4] == "http")))
 }
 
-// CreateInformasiTPQ membuat informasi TPQ baru
+// CreateInformasiTPQ membuat informasi TPQ baru (JSON input)
 func (ctrl *InformasiTPQController) CreateInformasiTPQ(c *gin.Context) {
 	// Hanya admin yang bisa create
 	if !ctrl.isAdmin(c) {
@@ -116,60 +91,46 @@ func (ctrl *InformasiTPQController) CreateInformasiTPQ(c *gin.Context) {
 		return
 	}
 
-	// Manual parsing form data
-	namaTPQ := c.PostForm("nama_tpq")
-	tempat := c.PostForm("tempat")
-	visi := c.PostForm("visi")
-	misi := c.PostForm("misi")
-	deskripsi := c.PostForm("deskripsi")
-	noTelp := c.PostForm("no_telp")
-	email := c.PostForm("email")
-	alamat := c.PostForm("alamat")
-	linkAlamat := c.PostForm("link_alamat")
-	hariJamBelajar := c.PostForm("hari_jam_belajar")
+	// Parse JSON request
+	var req CreateInformasiTPQRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request tidak valid: " + err.Error()})
+		return
+	}
 
 	// Validasi field required
-	if namaTPQ == "" {
+	if req.NamaTPQ == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Nama TPQ harus diisi"})
 		return
 	}
 
-	// Upload logo jika ada
-	var logo *string
-	filename, err := ctrl.uploadLogo(c)
-	if err != nil && err.Error() != "http: no such file" {
-		fmt.Printf("Error upload logo: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if filename != "" {
-		logo = &filename
-		fmt.Printf("Logo berhasil diupload: %s\n", filename)
+	// Validasi URL logo jika ada
+	if req.Logo != nil && *req.Logo != "" {
+		if !isValidCloudinaryURLlogo(*req.Logo) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL logo tidak valid"})
+			return
+		}
 	}
 
 	// Buat informasi TPQ
 	informasiTPQ := models.InformasiTPQ{
 		IDTPQ:          uuid.New().String(),
-		NamaTPQ:        namaTPQ,
-		Tempat:         &tempat,
-		Logo:           logo,
-		Visi:           &visi,
-		Misi:           &misi,
-		Deskripsi:      &deskripsi,
-		NoTelp:         &noTelp,
-		Email:          &email,
-		Alamat:         &alamat,
-		LinkAlamat:     &linkAlamat,
-		HariJamBelajar: &hariJamBelajar,
+		NamaTPQ:        req.NamaTPQ,
+		Tempat:         req.Tempat,
+		Logo:           req.Logo, // URL string dari Cloudinary
+		Visi:           req.Visi,
+		Misi:           req.Misi,
+		Deskripsi:      req.Deskripsi,
+		NoTelp:         req.NoTelp,
+		Email:          req.Email,
+		Alamat:         req.Alamat,
+		LinkAlamat:     req.LinkAlamat,
+		HariJamBelajar: req.HariJamBelajar,
 		DiupdateOlehID: &adminID,
 	}
 
 	// Simpan ke database
 	if err := ctrl.db.Create(&informasiTPQ).Error; err != nil {
-		// Hapus file yang sudah diupload jika gagal save
-		if logo != nil {
-			os.Remove("./image/tpq/" + *logo)
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat informasi TPQ: " + err.Error()})
 		return
 	}
@@ -203,7 +164,7 @@ func (ctrl *InformasiTPQController) GetInformasiTPQ(c *gin.Context) {
 	})
 }
 
-// UpdateInformasiTPQ mengupdate informasi TPQ
+// UpdateInformasiTPQ mengupdate informasi TPQ (JSON input)
 func (ctrl *InformasiTPQController) UpdateInformasiTPQ(c *gin.Context) {
 	// Hanya admin yang bisa update
 	if !ctrl.isAdmin(c) {
@@ -236,64 +197,57 @@ func (ctrl *InformasiTPQController) UpdateInformasiTPQ(c *gin.Context) {
 		return
 	}
 
-	// Manual parsing form data
-	namaTPQ := c.PostForm("nama_tpq")
-	tempat := c.PostForm("tempat")
-	visi := c.PostForm("visi")
-	misi := c.PostForm("misi")
-	deskripsi := c.PostForm("deskripsi")
-	noTelp := c.PostForm("no_telp")
-	email := c.PostForm("email")
-	alamat := c.PostForm("alamat")
-	linkAlamat := c.PostForm("link_alamat")
-	hariJamBelajar := c.PostForm("hari_jam_belajar")
-
-	// Upload logo baru jika ada
-	var newLogo *string
-	oldLogo := existingTPQ.Logo
-
-	filename, err := ctrl.uploadLogo(c)
-	if err != nil && err.Error() != "http: no such file" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// Parse JSON request
+	var req UpdateInformasiTPQRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Request tidak valid: " + err.Error()})
 		return
 	}
-	if filename != "" {
-		newLogo = &filename
+
+	// Validasi URL logo jika ada
+	if req.Logo != nil && *req.Logo != "" {
+		if !isValidCloudinaryURLlogo(*req.Logo) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "URL logo tidak valid"})
+			return
+		}
 	}
 
 	// Update fields
-	if namaTPQ != "" {
-		existingTPQ.NamaTPQ = namaTPQ
+	if req.NamaTPQ != "" {
+		existingTPQ.NamaTPQ = req.NamaTPQ
 	}
-	if tempat != "" {
-		existingTPQ.Tempat = &tempat
+	if req.Tempat != nil {
+		existingTPQ.Tempat = req.Tempat
 	}
-	if visi != "" {
-		existingTPQ.Visi = &visi
+	if req.Visi != nil {
+		existingTPQ.Visi = req.Visi
 	}
-	if misi != "" {
-		existingTPQ.Misi = &misi
+	if req.Misi != nil {
+		existingTPQ.Misi = req.Misi
 	}
-	if deskripsi != "" {
-		existingTPQ.Deskripsi = &deskripsi
+	if req.Deskripsi != nil {
+		existingTPQ.Deskripsi = req.Deskripsi
 	}
-	if noTelp != "" {
-		existingTPQ.NoTelp = &noTelp
+	if req.NoTelp != nil {
+		existingTPQ.NoTelp = req.NoTelp
 	}
-	if email != "" {
-		existingTPQ.Email = &email
+	if req.Email != nil {
+		existingTPQ.Email = req.Email
 	}
-	if alamat != "" {
-		existingTPQ.Alamat = &alamat
+	if req.Alamat != nil {
+		existingTPQ.Alamat = req.Alamat
 	}
-	if linkAlamat != "" {
-		existingTPQ.LinkAlamat = &linkAlamat
+	if req.LinkAlamat != nil {
+		existingTPQ.LinkAlamat = req.LinkAlamat
 	}
-	if hariJamBelajar != "" {
-		existingTPQ.HariJamBelajar = &hariJamBelajar
+	if req.HariJamBelajar != nil {
+		existingTPQ.HariJamBelajar = req.HariJamBelajar
 	}
-	if newLogo != nil {
-		existingTPQ.Logo = newLogo
+	if req.Logo != nil {
+		// Hanya update jika ada perubahan
+		if existingTPQ.Logo == nil || (req.Logo != nil && *existingTPQ.Logo != *req.Logo) {
+			existingTPQ.Logo = req.Logo
+		}
 	}
 
 	// Update user yang mengubah
@@ -301,17 +255,8 @@ func (ctrl *InformasiTPQController) UpdateInformasiTPQ(c *gin.Context) {
 
 	// Simpan perubahan
 	if err := ctrl.db.Save(&existingTPQ).Error; err != nil {
-		// Hapus file baru yang sudah diupload jika gagal save
-		if newLogo != nil {
-			os.Remove("./image/tpq/" + *newLogo)
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengupdate informasi TPQ: " + err.Error()})
 		return
-	}
-
-	// Hapus file logo lama jika ada logo baru
-	if newLogo != nil && oldLogo != nil {
-		os.Remove("./image/tpq/" + *oldLogo)
 	}
 
 	// Preload relations untuk response
@@ -347,11 +292,6 @@ func (ctrl *InformasiTPQController) DeleteInformasiTPQ(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data informasi TPQ: " + err.Error()})
 		return
-	}
-
-	// Hapus file logo jika ada
-	if tpq.Logo != nil {
-		os.Remove("./image/tpq/" + *tpq.Logo)
 	}
 
 	// Hapus informasi TPQ

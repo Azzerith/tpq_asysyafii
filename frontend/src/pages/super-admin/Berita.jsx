@@ -1076,8 +1076,8 @@ const uploadToCloudinary = async (file) => {
       <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
         <div className="text-sm text-gray-600">
           <span className="font-medium">Catatan:</span> Ini adalah preview tampilan berita.
-          {previewFasilitas.status === 'aktif' ? (
-            <span className="ml-1 text-green-600">Berita aktif dan dapat dilihat publik.</span>
+          {previewBerita.status === 'published' ? (
+            <span className="ml-1 text-green-600">Berita publish dan dapat dilihat publik.</span>
           ) : (
             <span className="ml-1 text-red-600">Berita nonaktif dan tidak ditampilkan ke publik.</span>
           )}

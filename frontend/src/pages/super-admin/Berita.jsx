@@ -1073,23 +1073,25 @@ const uploadToCloudinary = async (file) => {
         </article>
       </div>
 
-      {/* Modal Footer */}
       <div className="flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50">
         <div className="text-sm text-gray-600">
-          <span className="font-medium">Catatan:</span> Ini adalah preview. Untuk melihat di halaman publik, 
-          {previewBerita.status === 'published' ? (
-            <button
-              onClick={() => {
-                window.open(`${window.location.origin}/berita/${previewBerita.slug}`, '_blank');
-                setShowPreviewModal(false);
-              }}
-              className="ml-1 text-blue-600 hover:text-blue-800 font-medium"
-            >
-              buka di tab baru
-            </button>
+          <span className="font-medium">Catatan:</span> Ini adalah preview tampilan fasilitas.
+          {previewFasilitas.status === 'aktif' ? (
+            <span className="ml-1 text-green-600">Fasilitas aktif dan dapat dilihat publik.</span>
           ) : (
-            <span className="ml-1 text-yellow-600">berita harus dipublish terlebih dahulu</span>
+            <span className="ml-1 text-red-600">Fasilitas nonaktif dan tidak ditampilkan ke publik.</span>
           )}
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowPreviewModal(false);
+              setPreviewFasilitas(null);
+            }}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Tutup
+          </button>
         </div>
         <div className="flex gap-3">
           <button

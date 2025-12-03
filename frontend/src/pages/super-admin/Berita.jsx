@@ -1092,17 +1092,6 @@ const uploadToCloudinary = async (file) => {
           >
             Tutup
           </button>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => {
-              setShowPreviewModal(false);
-              setPreviewBerita(null);
-            }}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            Tutup
-          </button>
           {previewBerita.status === 'draft' && (
             <button
               onClick={() => {

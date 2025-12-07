@@ -560,81 +560,81 @@ const DonasiPage = () => {
 
   // Skeleton loader
   const SkeletonLoader = () => (
-    <div className="min-h-screen bg-white pt-20">
-      {/* Header*/}
-      <div className="bg-gradient-to-r from-emerald-700 to-green-600 shadow-lg">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <Link 
-                to="/"
-                className="inline-flex items-center space-x-2 text-white hover:text-green-100 transition-all duration-300  px-3 py-2 rounded-lg font-medium text-sm"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                <span className="hidden xs:inline">Kembali</span>
-              </Link>
-              <div className="hidden lg:block w-px h-6 bg-green-500"></div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Laporan Keuangan</h1>
-                <p className="text-green-100 text-sm">Transparansi penuh setiap kebaikan yang diberikan dan digunakan</p>
+    <div>{/* Header*/}
+    <div className="bg-gradient-to-r from-emerald-700 to-green-600 shadow-lg">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <Link 
+              to="/"
+              className="inline-flex items-center space-x-2 text-white hover:text-green-100 transition-all duration-300  px-3 py-2 rounded-lg font-medium text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span className="hidden xs:inline">Kembali</span>
+            </Link>
+            <div className="hidden lg:block w-px h-6 bg-green-500"></div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Laporan Keuangan</h1>
+              <p className="text-green-100 text-sm">Transparansi penuh setiap kebaikan yang diberikan dan digunakan</p>
+            </div>
+          </div>
+          
+          {/* Total Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+            {/* Total Donasi Card */}
+            <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-xs font-medium mb-1">Total Donasi Masuk</p>
+                  <p className="text-lg font-bold text-white">{formatCurrencyShort(totalDonasi)}</p>
+                  <p className="text-emerald-200 text-xs mt-1">Periode Terfilter</p>
+                </div>
+                <div className="text-emerald-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </div>
               </div>
             </div>
-            
-            {/* Total Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto mt-4 lg:mt-0">
-              {/* Total Donasi Card */}
-              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-xs font-medium mb-1">Total Donasi Masuk</p>
-                    <p className="text-lg font-bold text-white">{formatCurrencyShort(totalDonasi)}</p>
-                    <p className="text-emerald-200 text-xs mt-1">Periode Terfilter</p>
-                  </div>
-                  <div className="text-emerald-200">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </div>
+
+            {/* Total Pengeluaran Card */}
+            <div className="bg-gradient-to-r from-red-700 to-red-700 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-xs font-medium mb-1">Total Pengeluaran</p>
+                  <p className="text-lg font-bold text-white">{formatCurrencyShort(totalPengeluaran)}</p>
+                  <p className="text-white text-xs mt-1">Dari Dana Donasi</p>
+                </div>
+                <div className="text-white">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
               </div>
+            </div>
 
-              {/* Total Pengeluaran Card */}
-              <div className="bg-gradient-to-r from-red-700 to-red-700 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-xs font-medium mb-1">Total Pengeluaran</p>
-                    <p className="text-lg font-bold text-white">{formatCurrencyShort(totalPengeluaran)}</p>
-                    <p className="text-white text-xs mt-1">Dari Dana Donasi</p>
-                  </div>
-                  <div className="text-white">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
+            {/* PERBAIKAN: Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
+            <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-xs font-medium mb-1">Saldo Akhir</p>
+                  <p className="text-lg font-bold text-white">{formatCurrencyShort(saldoAkhir)}</p>
+                  <p className="text-cyan-200 text-xs mt-1">Saldo Donasi Saat Ini</p>
                 </div>
-              </div>
-
-              {/* PERBAIKAN: Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
-              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white text-xs font-medium mb-1">Saldo Akhir</p>
-                    <p className="text-lg font-bold text-white">{formatCurrencyShort(saldoAkhir)}</p>
-                    <p className="text-cyan-200 text-xs mt-1">Saldo Donasi Saat Ini</p>
-                  </div>
-                  <div className="text-cyan-200">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                  </div>
+                <div className="text-cyan-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+    <div className="min-h-screen bg-white pt-20">
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">
           {/* Header Skeleton */}
@@ -678,6 +678,7 @@ const DonasiPage = () => {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 

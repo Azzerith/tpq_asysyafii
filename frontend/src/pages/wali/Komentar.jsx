@@ -461,10 +461,6 @@ const handleUpdateTestimoni = async (e) => {
             </li>
             <li className="flex items-start space-x-2">
               <span className="text-blue-500 mt-1">•</span>
-              <span>Sebutkan hal-hal yang paling Anda sukai</span>
-            </li>
-            <li className="flex items-start space-x-2">
-              <span className="text-blue-500 mt-1">•</span>
               <span>Berikan saran yang membangun</span>
             </li>
             <li className="flex items-start space-x-2">
@@ -472,34 +468,6 @@ const handleUpdateTestimoni = async (e) => {
               <span>Gunakan bahasa yang sopan dan jelas</span>
             </li>
           </ul>
-        </div>
-
-        <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h4 className="font-semibold text-purple-900">Status Testimoni</h4>
-          </div>
-          <div className="text-purple-700 text-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span>Ditampilkan</span>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Public
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Disembunyikan</span>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                Private
-              </span>
-            </div>
-            <p className="text-purple-600 text-xs">
-              Admin dapat mengubah status testimoni untuk ditampilkan atau disembunyikan
-            </p>
-          </div>
         </div>
       </div>
 

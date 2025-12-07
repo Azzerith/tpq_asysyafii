@@ -263,24 +263,14 @@ const DonasiPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">Tidak Ada Data Donasi</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">Tidak Ada Data Donasi Bulan ini</h3>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto text-xs sm:text-sm">
                   {startDate || endDate 
                     ? 'Tidak ada data donasi dalam periode yang dipilih. Coba ubah filter tanggal atau reset filter untuk melihat semua data.'
                     : 'Belum ada data donasi yang tercatat. Donasi pertama akan muncul di sini.'
                   }
                 </p>
-                {(startDate || endDate) && (
-                  <button
-                    onClick={handleShowAllPeriod}
-                    className="bg-green-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm inline-flex items-center space-x-2 text-xs sm:text-sm"
-                  >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>Tampilkan Semua Data</span>
-                  </button>
-                )}
+
               </div>
             ) : (
               <>
@@ -426,24 +416,13 @@ const DonasiPage = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">Tidak Ada Data Pengeluaran</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2">Tidak Ada Data Pengeluaran Bulan ini</h3>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto text-xs sm:text-sm">
                   {startDate || endDate 
                     ? 'Tidak ada data pengeluaran dari dana donasi dalam periode yang dipilih. Coba ubah filter tanggal atau reset filter untuk melihat semua data.'
                     : 'Belum ada data pengeluaran dari dana donasi yang tercatat.'
                   }
                 </p>
-                {(startDate || endDate) && (
-                  <button
-                    onClick={handleShowAllPeriod}
-                    className="bg-green-600 text-white px-4 py-2 sm:px-6 sm:py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm inline-flex items-center space-x-2 text-xs sm:text-sm"
-                  >
-                    <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span>Tampilkan Semua Data</span>
-                  </button>
-                )}
               </div>
             ) : (
               <>
@@ -584,6 +563,80 @@ const DonasiPage = () => {
     <div className="min-h-screen bg-white pt-20">
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">
+          {/* Header*/}
+      <div className="bg-gradient-to-r from-emerald-700 to-green-600 shadow-lg">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <Link 
+                to="/"
+                className="inline-flex items-center space-x-2 text-white hover:text-green-100 transition-all duration-300  px-3 py-2 rounded-lg font-medium text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="hidden xs:inline">Kembali</span>
+              </Link>
+              <div className="hidden lg:block w-px h-6 bg-green-500"></div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">Laporan Keuangan</h1>
+                <p className="text-green-100 text-sm">Transparansi penuh setiap kebaikan yang diberikan dan digunakan</p>
+              </div>
+            </div>
+            
+            {/* Total Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto mt-4 lg:mt-0">
+              {/* Total Donasi Card */}
+              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-xs font-medium mb-1">Total Donasi Masuk</p>
+                    <p className="text-lg font-bold text-white">{formatCurrencyShort(totalDonasi)}</p>
+                    <p className="text-emerald-200 text-xs mt-1">Periode Terfilter</p>
+                  </div>
+                  <div className="text-emerald-200">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Pengeluaran Card */}
+              <div className="bg-gradient-to-r from-red-700 to-red-700 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-xs font-medium mb-1">Total Pengeluaran</p>
+                    <p className="text-lg font-bold text-white">{formatCurrencyShort(totalPengeluaran)}</p>
+                    <p className="text-white text-xs mt-1">Dari Dana Donasi</p>
+                  </div>
+                  <div className="text-white">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* PERBAIKAN: Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
+              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white text-xs font-medium mb-1">Saldo Akhir</p>
+                    <p className="text-lg font-bold text-white">{formatCurrencyShort(saldoAkhir)}</p>
+                    <p className="text-cyan-200 text-xs mt-1">Saldo Donasi Saat Ini</p>
+                  </div>
+                  <div className="text-cyan-200">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
           {/* Header Skeleton */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -634,8 +687,8 @@ const DonasiPage = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Enhanced Header - Hijau */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-700 shadow-lg">
+      {/* Header*/}
+      <div className="bg-gradient-to-r from-emerald-700 to-green-600 shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
@@ -658,7 +711,7 @@ const DonasiPage = () => {
             {/* Total Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto mt-4 lg:mt-0">
               {/* Total Donasi Card */}
-              <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-xs font-medium mb-1">Total Donasi Masuk</p>
@@ -674,14 +727,14 @@ const DonasiPage = () => {
               </div>
 
               {/* Total Pengeluaran Card */}
-              <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl p-4 text-white shadow-lg">
+              <div className="bg-gradient-to-r from-red-700 to-red-700 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-xs font-medium mb-1">Total Pengeluaran</p>
                     <p className="text-lg font-bold text-white">{formatCurrencyShort(totalPengeluaran)}</p>
-                    <p className="text-amber-200 text-xs mt-1">Dari Dana Donasi</p>
+                    <p className="text-white text-xs mt-1">Dari Dana Donasi</p>
                   </div>
-                  <div className="text-amber-200">
+                  <div className="text-white">
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -689,8 +742,8 @@ const DonasiPage = () => {
                 </div>
               </div>
 
-              {/* PERBAIKAN: Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
-              <div className="bg-gradient-to-r from-blue-500 to-cyan-600 rounded-xl p-4 text-white shadow-lg">
+              {/* Saldo Akhir Card - Mengambil dari saldo donasi terbaru */}
+              <div className="bg-gradient-to-r from-green-700 to-green-700 rounded-xl p-4 text-white shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white text-xs font-medium mb-1">Saldo Akhir</p>
@@ -784,22 +837,14 @@ const DonasiPage = () => {
                 <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
                   <button
                     onClick={handleSetCurrentMonth}
-                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
+                    className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <span>Bulan Ini</span>
                   </button>
-                  <button
-                    onClick={handleShowAllPeriod}
-                    className="flex-1 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-300 font-medium shadow-sm flex items-center justify-center space-x-1 sm:space-x-2"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                    </svg>
-                    <span>Semua</span>
-                  </button>
+
                 </div>
               </div>
               
@@ -941,36 +986,6 @@ const DonasiPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Informasi Transparansi */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-start space-x-3">
-                <div className="text-blue-500 mt-0.5">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm text-blue-800">
-                    <strong>Informasi Transparansi:</strong> 
-                    <br />
-                    • Total Donasi (Periode Terfilter): {formatCurrency(totalDonasi)}
-                    <br />
-                    • Total Pengeluaran dari Dana Donasi (Periode Terfilter): {formatCurrency(totalPengeluaran)}
-                    <br />
-                    • <strong>Saldo Akhir Dana Donasi Saat Ini: {formatCurrency(saldoAkhir)}</strong>
-                    <br />
-                    • Saldo akhir diambil dari saldo donasi terbaru di sistem
-                    <br />
-                    • Pengeluaran hanya menggunakan dana donasi yang telah terkumpul
-                    <br />
-                    • Dana syahriah digunakan terpisah untuk operasional TPQ
-                    <br />
-                    • Laporan ini diperbarui secara real-time untuk memastikan akurasi data
-                  </p>
-                </div>
-              </div>
             </div>
           </>
         )}

@@ -430,16 +430,18 @@ const KeuanganTPQ = () => {
   };
 
   // Render content berdasarkan active tab - DENGAN SEPARATOR VERTICAL
-  const renderContent = () => {
-    const filteredRekap = getFilteredRekap();
-    const filteredPemakaian = getFilteredPemakaian();
-    const filteredDonasi = getFilteredDonasi();
-    const filteredSyahriah = getFilteredSyahriah();
+const renderContent = () => {
+  const filteredRekap = getFilteredRekap();
+  const filteredPemakaian = getFilteredPemakaian();
+  const filteredDonasi = getFilteredDonasi();
+  const filteredSyahriah = getFilteredSyahriah();
 
-    switch (activeTab) {
-      case 'rekap':
-        return (
-          <div className="overflow-x-auto">
+  switch (activeTab) {
+    case 'rekap':
+      return (
+        <>
+          {/* Desktop View - Full Table */}
+          <div className="hidden md:block overflow-x-auto">
             {filteredRekap.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -555,243 +557,599 @@ const KeuanganTPQ = () => {
               </table>
             )}
           </div>
-        );
-      
-      case 'pengeluaran':
-        return (
-          <div className="overflow-x-auto">
-            {filteredPemakaian.length === 0 ? (
+
+          {/* Mobile View - Separate Tables */}
+          <div className="md:hidden space-y-6">
+            {filteredRekap.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
-                <p className="text-green-600">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Rekap</h3>
+                <p className="text-green-600">Data rekap keuangan akan muncul setelah ada transaksi</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-green-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Keterangan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tipe</th>
+              filteredRekap.map((item, index) => (
+                <div key={index} className="space-y-4">
+                  {/* Header Periode */}
+                  <div className="bg-green-600 px-4 py-3 rounded-t-lg border border-green-200">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-white">{formatPeriod(item.periode)}</h3>
+                      <span className="text-xs text-green-600">
+                        Update: {formatDateTime(item.terakhir_update)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Table 1: Dana Syahriah */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-orange-100 border border-orange-200 rounded-lg">
+                      <thead>
+                        <tr className="bg-orange-50">
+                          <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium bg-orange-600 text-white uppercase">
+                            <div className="flex items-center justify-center">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                              </svg>
+                              Dana Syahriah
+                            </div>
+                          </th>
+                        </tr>
+                        <tr className="bg-orange-100">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Pemasukan</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Pengeluaran</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Saldo Bulan ini</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-orange-100">
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                            {formatCurrency(item.pemasukan_syahriah)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600">
+                            {formatCurrency(item.pengeluaran_syahriah)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                            {formatCurrency(item.saldo_akhir_syahriah)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Table 2: Dana Donasi */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-purple-100 border border-purple-200 rounded-lg">
+                      <thead>
+                        <tr className="bg-purple-50">
+                          <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium bg-purple-600 text-white uppercase">
+                            <div className="flex items-center justify-center">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                              Dana Donasi
+                            </div>
+                          </th>
+                        </tr>
+                        <tr className="bg-purple-100">
+                          <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Pemasukan</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Pengeluaran</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Saldo Bulan ini</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-purple-100">
+                        <tr>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                            {formatCurrency(item.pemasukan_donasi)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600">
+                            {formatCurrency(item.pengeluaran_donasi)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                            {formatCurrency(item.saldo_akhir_donasi)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Table 3: Ringkasan Total */}
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-green-100 border border-green-200 rounded-lg">
+                      <thead>
+                        <tr className="bg-green-50">
+                          <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium text-green-800 uppercase">
+                            <div className="flex items-center justify-center">
+                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                              Ringkasan Total
+                            </div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-green-100">
+                        <tr>
+                          <td className="px-4 py-3 border-b border-green-100">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-green-600">Total Pemasukan</span>
+                              <span className="font-semibold text-green-700">
+                                {formatCurrency(item.pemasukan_total)}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-3 border-b border-green-100">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-red-600">Total Pengeluaran</span>
+                              <span className="font-semibold text-red-700">
+                                {formatCurrency(item.pengeluaran_total)}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-blue-600">Saldo Akhir {formatPeriod(item.periode)}</span>
+                              <span className={`text-lg font-bold ${item.saldo_akhir_total >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                {formatCurrency(item.saldo_akhir_total)}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      );
+      
+    case 'pengeluaran':
+      return (
+        <div className="overflow-x-auto">
+          {filteredPemakaian.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
+              <p className="text-green-600">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-green-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Keterangan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tipe</th>
+                      
+                      {/* Header Dana dengan Separator */}
+                      <th colSpan="3" className="px-6 py-3 text-center text-xs font-medium text-white uppercase border-x border-green-200">
+                        Sumber Dana
+                      </th>
+                      
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Diajukan Oleh</th>
+                    </tr>
                     
-                    {/* Header Dana dengan Separator */}
-                    <th colSpan="3" className="px-6 py-3 text-center text-xs font-medium text-green-900 uppercase border-x border-green-200">
-                      Sumber Dana
-                    </th>
-                    
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Diajukan Oleh</th>
-                  </tr>
-                  
-                  {/* Sub-header untuk Sumber Dana */}
-                  <tr>
-                    <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50"></th>
-                    <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50"></th>
-                    <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50"></th>
-                    
-                    {/* Dana Syahriah */}
-                    <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">
-                      <div className="flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                        </svg>
-                        Syahriah
-                      </div>
-                    </th>
-                    
-                    {/* Dana Donasi */}
-                    <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50">
-                      <div className="flex items-center">
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                        Donasi
-                      </div>
-                    </th>
-                    
-                    {/* Total */}
-                    <th className="px-6 py-2 text-left text-xs font-medium text-red-600 uppercase bg-red-50 border-x border-red-100">
-                      Total
-                    </th>
-                    
-                    <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50"></th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-green-100">
-                  {filteredPemakaian.map((item, index) => (
-                    <tr key={index} className="hover:bg-green-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div>
-                          <div className="font-medium">{item.judul_pemakaian}</div>
-                          <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
-                          {item.keterangan && (
-                            <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                          item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
-                          item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {item.tipe_pemakaian}
-                        </span>
-                      </td>
+                    {/* Sub-header untuk Sumber Dana */}
+                    <tr>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
                       
                       {/* Dana Syahriah */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600 bg-orange-50/30 border-x border-orange-100">
-                        {formatCurrency(item.nominal_syahriah)}
-                      </td>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-orange-600 border-x border-orange-100">
+                        <div className="flex items-center">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                          </svg>
+                          Syahriah
+                        </div>
+                      </th>
                       
                       {/* Dana Donasi */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600 bg-purple-50/30">
-                        {formatCurrency(item.nominal_donasi)}
-                      </td>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-purple-600">
+                        <div className="flex items-center">
+                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          Donasi
+                        </div>
+                      </th>
                       
                       {/* Total */}
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 bg-red-50/30 border-x border-red-100">
-                        {formatCurrency(item.nominal_total)}
-                      </td>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-red-600 border-x border-red-100">
+                        Total
+                      </th>
                       
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.pengaju?.nama_lengkap || 'Admin'}
-                      </td>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
-
-      case 'pemasukan':
-        return (
-          <div className="overflow-x-auto">
-            {filteredDonasi.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Donasi</h3>
-                <p className="text-green-600">Data pemasukan donasi akan muncul setelah ada donasi</p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-green-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Tanggal</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Donatur</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">No. Telp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-green-900 uppercase">Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-green-100">
-                  {filteredDonasi.map((item, index) => (
-                    <tr key={index} className="hover:bg-green-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(item.waktu_catat)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {item.nama_donatur}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.no_telp || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama_lengkap || 'Admin'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
-
-      case 'syahriah':
-        return (
-          <div className="overflow-x-auto">
-            {filteredSyahriah.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredSyahriah.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {item.santri?.nama_lengkap || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.santri?.wali?.nama_lengkap || '-'}
-                        {item.santri?.wali?.email && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            {item.santri.wali.email}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-green-100">
+                    {filteredPemakaian.map((item, index) => (
+                      <tr key={index} className="hover:bg-green-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div>
+                            <div className="font-medium">{item.judul_pemakaian}</div>
+                            <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
+                            {item.keterangan && (
+                              <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
+                            )}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatPeriod(item.bulan)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama_lengkap || 'Admin'}
-                      </td>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                            item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                            item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {item.tipe_pemakaian}
+                          </span>
+                        </td>
+                        
+                        {/* Dana Syahriah */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600 bg-orange-50/30 border-x border-orange-100">
+                          {formatCurrency(item.nominal_syahriah)}
+                        </td>
+                        
+                        {/* Dana Donasi */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600 bg-purple-50/30">
+                          {formatCurrency(item.nominal_donasi)}
+                        </td>
+                        
+                        {/* Total */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 bg-red-50/30 border-x border-red-100">
+                          {formatCurrency(item.nominal_total)}
+                        </td>
+                        
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.pengaju?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                  <thead>
+                    <tr className="bg-green-600">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Pengeluaran</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Detail</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );   
-      
-      default:
-        return null;
-    }
-  };
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredPemakaian.map((item, index) => (
+                      <>
+                        <tr key={`${index}-main`} className="border-b border-gray-100">
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">{item.judul_pemakaian}</div>
+                              <div className="text-xs text-gray-500">
+                                {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                              </div>
+                              <div>
+                                <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
+                                  item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                                  item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {item.tipe_pemakaian}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-left">
+                            <span className="text-lg font-bold text-red-700">
+                              {formatCurrency(item.nominal_total)}
+                            </span>
+                          </td>
+                        </tr>
+                        
+                        {/* Detail Row */}
+                        <tr key={`${index}-detail`} className="bg-gray-50">
+                          <td colSpan="2" className="px-4 py-3">
+                            <div className="space-y-2">
+                              {item.deskripsi && (
+                                <div className="text-sm text-gray-600">{item.deskripsi}</div>
+                              )}
+                              
+                              {item.keterangan && (
+                                <div className="text-xs text-gray-500">
+                                  <span className="font-medium">Catatan:</span> {item.keterangan}
+                                </div>
+                              )}
+                              
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                                <div>
+                                  <div className="text-xs text-orange-600 mb-1 flex items-center">
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                    </svg>
+                                    Dana Syahriah
+                                  </div>
+                                  <div className="text-sm font-medium text-orange-700">
+                                    {formatCurrency(item.nominal_syahriah)}
+                                  </div>
+                                </div>
+                                
+                                <div>
+                                  <div className="text-xs text-purple-600 mb-1 flex items-center">
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                    </svg>
+                                    Dana Donasi
+                                  </div>
+                                  <div className="text-sm font-medium text-purple-700">
+                                    {formatCurrency(item.nominal_donasi)}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="text-xs text-gray-500 pt-2 border-t border-gray-200">
+                                Diajukan oleh: {item.pengaju?.nama_lengkap || 'Admin'}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      );
+
+    case 'pemasukan':
+      return (
+        <div className="overflow-x-auto">
+          {filteredDonasi.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Donasi</h3>
+              <p className="text-green-600">Data pemasukan donasi akan muncul setelah ada donasi</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-green-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Donatur</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">No. Telp</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Dicatat Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-green-100">
+                    {filteredDonasi.map((item, index) => (
+                      <tr key={index} className="hover:bg-green-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDateTime(item.waktu_catat)}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                          {item.nama_donatur}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.no_telp || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(item.nominal)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.admin?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                  <thead>
+                    <tr className="bg-green-600">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Donasi</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredDonasi.map((item, index) => (
+                      <>
+                        <tr key={`${index}-main`} className="border-b border-gray-100">
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">{item.nama_donatur}</div>
+                              <div className="text-xs text-gray-500">
+                                {formatDateTime(item.waktu_catat)}
+                              </div>
+                              {item.no_telp && (
+                                <div className="text-xs text-gray-500">
+                                  Telp: {item.no_telp}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-left">
+                            <span className="text-lg font-bold text-green-700">
+                              {formatCurrency(item.nominal)}
+                            </span>
+                          </td>
+                        </tr>
+                        <tr key={`${index}-detail`} className="bg-gray-50">
+                          <td colSpan="2" className="px-4 py-3 text-xs text-gray-500">
+                            Dicatat oleh: {item.admin?.nama_lengkap || 'Admin'}
+                          </td>
+                        </tr>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      );
+
+    case 'syahriah':
+      return (
+        <div className="overflow-x-auto">
+          {filteredSyahriah.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+              <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+            </div>
+          ) : (
+            <>
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-green-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Santri</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Wali</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Bulan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal Bayar</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Dicatat Oleh</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredSyahriah.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {item.santri?.nama_lengkap || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.santri?.wali?.nama_lengkap || '-'}
+                          {item.santri?.wali?.email && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {item.santri.wali.email}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatPeriod(item.bulan)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(item.nominal)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {item.admin?.nama_lengkap || 'Admin'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                  <thead>
+                    <tr className="bg-green-600">
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Syahriah</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredSyahriah.map((item, index) => (
+                      <>
+                        <tr key={`${index}-main`} className="border-b border-gray-100">
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">{item.santri?.nama_lengkap || 'N/A'}</div>
+                              <div className="text-xs text-gray-500">
+                                {formatPeriod(item.bulan)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.santri?.wali?.nama_lengkap || 'Wali tidak terdaftar'}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col items-end space-y-2">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                              </span>
+                              <span className="text-lg font-bold text-green-700">
+                                {formatCurrency(item.nominal)}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr key={`${index}-detail`} className="bg-gray-50">
+                          <td colSpan="2" className="px-4 py-3">
+                            <div className="space-y-1 text-xs text-gray-500">
+                              {item.status === 'lunas' && (
+                                <div>
+                                  Tanggal Bayar: {formatDateTime(item.waktu_catat)}
+                                </div>
+                              )}
+                              <div>
+                                Dicatat oleh: {item.admin?.nama_lengkap || 'Admin'}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      );   
+    
+    default:
+      return null;
+  }
+};
 
   // Loading state
   if (loading) {

@@ -226,6 +226,37 @@ func (ctrl *SantriController) GetSantriByWali(c *gin.Context) {
     })
 }
 
+// GetSantriByWaliID mendapatkan santri berdasarkan ID wali tertentu (untuk super admin)
+func (ctrl *SantriController) GetSantriByWaliID(c *gin.Context) {
+    waliID := c.Param("id")
+    if waliID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "ID wali diperlukan"})
+        return
+    }
+
+    // Cek apakah wali exists
+    var wali models.User
+    if err := ctrl.db.Where("id_user = ?", waliID).First(&wali).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Wali tidak ditemukan"})
+        return
+    }
+
+    var santri []models.Santri
+    err := ctrl.db.Preload("Wali").
+        Where("id_wali = ?", waliID).
+        Order("dibuat_pada DESC").
+        Find(&santri).Error
+
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data santri: " + err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "data": santri,
+    })
+}
+
 // GetMySantri mendapatkan data santri dari wali yang sedang login
 func (ctrl *SantriController) GetMySantri(c *gin.Context) {
 	// Get user ID dari token

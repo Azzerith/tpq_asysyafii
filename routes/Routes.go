@@ -188,6 +188,7 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.POST("/santri", santriController.CreateSantri)
 			superAdmin.GET("/santri", santriController.GetAllSantri)
 			superAdmin.GET("/santri/wali/:id_wali", santriController.GetSantriByWali)
+			superAdmin.GET("/santri/by-wali/:id", santriController.GetSantriByWaliID)
 			superAdmin.GET("/santri/search", santriController.SearchSantri) 
 			superAdmin.GET("/santri/:id", santriController.GetSantriByID) 
 			superAdmin.PUT("/santri/:id", santriController.UpdateSantri) 

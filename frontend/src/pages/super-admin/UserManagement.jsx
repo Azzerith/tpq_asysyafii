@@ -22,6 +22,8 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [santriData, setSantriData] = useState({});
+
   // State untuk alert
   const [alertMessage, setAlertMessage] = useState({
     title: '',
@@ -105,6 +107,7 @@ const UserManagement = () => {
       }));
       
       setUsers(transformedUsers);
+      fetchSantriForUsers(transformedUsers);
 
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -114,6 +117,83 @@ const UserManagement = () => {
       setLoading(false);
     }
   };
+
+  // Fetch data santri untuk setiap user (wali)
+const fetchSantriForUsers = async (users) => {
+  try {
+    const waliUsers = users.filter(user => user.role === 'wali');
+    const santriMap = {};
+    
+    console.log('Fetching santri for wali users:', waliUsers.map(u => ({ id: u.id, name: u.nama })));
+    
+    // Cek role current user
+    if (!currentUser || (currentUser.role !== 'super_admin' && currentUser.role !== 'admin')) {
+      console.log('User tidak memiliki akses untuk melihat santri wali lain');
+      return;
+    }
+    
+    // Untuk setiap wali, fetch data santrinya menggunakan endpoint baru
+    for (const user of waliUsers) {
+      try {
+        // Gunakan endpoint baru untuk super admin
+        const endpoint = `/api/super-admin/santri/by-wali/${user.id}`;
+        console.log(`Fetching santri for user ${user.id} from endpoint: ${endpoint}`);
+        
+        const response = await fetch(`${API_URL}${endpoint}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log(`Response status for user ${user.id}:`, response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`Response data for user ${user.id}:`, data);
+          
+          // Handle response format
+          let santriList = [];
+          
+          if (Array.isArray(data.data)) {
+            santriList = data.data;
+          } else if (Array.isArray(data)) {
+            santriList = data;
+          } else if (data.data && typeof data.data === 'object') {
+            // Jika single object, wrap in array
+            santriList = [data.data];
+          } else if (data.santri) {
+            santriList = data.santri;
+          }
+          
+          console.log(`Parsed santri list for user ${user.id}:`, santriList.length, 'items');
+          
+          santriMap[user.id] = santriList.map(santri => ({
+            id: santri.id_santri || santri.id || santri.IDSantri,
+            nama: santri.nama_lengkap || santri.nama || santri.NamaLengkap,
+            status: santri.status || santri.Status || 'aktif',
+            jenisKelamin: santri.jenis_kelamin || santri.jenisKelamin || santri.JenisKelamin,
+            tanggalMasuk: santri.tanggal_masuk || santri.tanggalMasuk || santri.TanggalMasuk,
+            tempatLahir: santri.tempat_lahir || santri.tempatLahir || santri.TempatLahir,
+            alamat: santri.alamat || santri.Alamat
+          }));
+        } else {
+          const errorText = await response.text();
+          console.warn(`Failed to fetch santri for user ${user.id}:`, response.status, errorText);
+          santriMap[user.id] = [];
+        }
+      } catch (err) {
+        console.error(`Error fetching santri for user ${user.id}:`, err);
+        santriMap[user.id] = [];
+      }
+    }
+    
+    console.log('Final santri data:', santriMap);
+    setSantriData(santriMap);
+  } catch (err) {
+    console.error('Error in fetchSantriForUsers:', err);
+  }
+};
 
   // Check if current user has permission to access this page
   useEffect(() => {
@@ -226,6 +306,11 @@ const UserManagement = () => {
       }
 
       setUsers(users.filter(user => user.id !== selectedUser.id));
+      setSantriData(prev => {
+        const newData = { ...prev };
+        delete newData[selectedUser.id];
+        return newData;
+      });
       closeModals();
       showAlert('Berhasil', `User ${selectedUser.nama} berhasil dihapus`, 'success');
       
@@ -488,22 +573,6 @@ const UserManagement = () => {
     wali: filteredUsers.filter(user => user.role === 'wali'),
     admin: filteredUsers.filter(user => user.role === 'admin'),
     super_admin: filteredUsers.filter(user => user.role === 'super_admin')
-  };
-
-  // Format tanggal
-  const formatDate = (dateString) => {
-    if (!dateString || dateString === '-') return '-';
-    
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('id-ID', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    } catch (error) {
-      return dateString;
-    }
   };
 
   // Modal Components
@@ -1129,30 +1198,15 @@ const UserManagement = () => {
   }
 
   return (
-    <AuthDashboardLayout>
+    <AuthDashboardLayout title={'Manajemen User'}>
       <div className="p-6">
 
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Manajemen User</h1>
-            <p className="text-gray-600 mt-1">Kelola data pengguna sistem</p>
-          </div>
-          <button 
-            onClick={openCreateModal}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            disabled={!hasPermission('create_user')}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Tambah User
-          </button>
-        </div>
+        
 
         {/* Filter dan Search Section */}
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="md:col-span-3">
               <input
                 type="text"
                 placeholder="Cari berdasarkan nama, email, atau telepon..."
@@ -1162,7 +1216,7 @@ const UserManagement = () => {
               />
             </div>
             <select
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border md:col-span-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -1170,6 +1224,16 @@ const UserManagement = () => {
               <option value="Aktif">Aktif</option>
               <option value="Nonaktif">Nonaktif</option>
             </select>
+            <button 
+            onClick={openCreateModal}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            disabled={!hasPermission('create_user')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Tambah User
+          </button>
           </div>
         </div>
 
@@ -1177,37 +1241,40 @@ const UserManagement = () => {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tabel Wali - Lebih Luas */}
           <div className="xl:col-span-2">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Data Wali Santri
-                  </h2>
-                  <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
-                    {usersByRole.wali.length} User
-                  </span>
-                </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tanggal Daftar
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Aksi
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+    <div className="flex items-center justify-between">
+      <h2 className="text-lg font-semibold text-gray-900">
+        Data Wali Santri
+      </h2>
+      <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
+        {usersByRole.wali.length} User
+      </span>
+    </div>
+  </div>
+  
+  <div className="overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+        <tr>
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            User
+          </th>
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Data Santri
+          </th>
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Status User
+          </th>
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Tanggal Daftar
+          </th>
+          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            Aksi
+          </th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
                     {usersByRole.wali.length === 0 ? (
                       <tr>
                         <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
@@ -1229,6 +1296,7 @@ const UserManagement = () => {
                           isCurrentUser={isCurrentUser(user.id)}
                           hasPermission={hasPermission}
                           currentUser={currentUser}
+                          santriData={santriData}
                         />
                       ))
                     )}
@@ -1837,77 +1905,152 @@ const UserManagement = () => {
   );
 };
 
-// Komponen terpisah untuk table row wali - FIXED: menggunakan React.memo
-const UserTableRow = React.memo(({ user, onEdit, onView, onDelete, onToggleStatus, isCurrentUser, hasPermission, currentUser }) => (
-  <tr className="hover:bg-gray-50 transition-colors">
-    <td className="px-6 py-4">
-      <div className="flex items-center">
-        <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-          <span className="text-blue-600 font-medium">
-            {user.nama.split(' ').map(n => n[0]).join('')}
-          </span>
+// Format tanggal
+const formatDate = (dateString) => {
+  if (!dateString || dateString === '-') return '-';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch (error) {
+    return dateString;
+  }
+};
+// Fungsi untuk mendapatkan label status santri
+const getStatusLabel = (status) => {
+  const statusLabels = {
+    'aktif': 'Aktif',
+    'lulus': 'Lulus',
+    'pindah': 'Pindah',
+    'berhenti': 'Berhenti'
+  };
+  return statusLabels[status] || status;
+};
+
+// Fungsi untuk mendapatkan warna status santri
+const getStatusColor = (status) => {
+  const statusColors = {
+    'aktif': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
+    'lulus': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
+    'pindah': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
+    'berhenti': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' }
+  };
+  return statusColors[status] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
+};
+// Komponen UserTableRow yang diperbarui dengan data santri
+const UserTableRow = React.memo(({ user, onEdit, onView, onDelete, onToggleStatus, isCurrentUser, hasPermission, currentUser,santriData }) => {
+  const userSantri = santriData[user.id] || user.santriList || [];
+  const statusColor = getStatusColor;
+  
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      <td className="px-6 py-4">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <span className="text-blue-600 font-medium">
+              {user.nama.split(' ').map(n => n[0]).join('')}
+            </span>
+          </div>
+          <div className="ml-4">
+            <button 
+              onClick={() => onView(user)}
+              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors text-left"
+            >
+              {user.nama}
+              {isCurrentUser && (
+                <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Anda</span>
+              )}
+            </button>
+            <div className="text-sm text-gray-500">{user.email}</div>
+            <div className="text-xs text-gray-400">ID: {user.id} • Telp: {user.no_telp}</div>
+          </div>
         </div>
-        <div className="ml-4">
-          <button 
-            onClick={() => onView(user)}
-            className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors text-left"
-          >
-            {user.nama}
-            {isCurrentUser && (
-              <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Anda</span>
+      </td>
+      <td className="px-6 py-4">
+        {/* Kolom Data Santri */}
+        {user.role === 'wali' ? (
+          <div className="space-y-2">
+            {userSantri.length === 0 ? (
+              <div className="text-sm text-gray-500 italic">Tidak ada santri</div>
+            ) : (
+              userSantri.map((santri, index) => (
+                <div key={santri.id || index} className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">{santri.nama}</div>
+                    <div className="text-xs text-gray-500">
+                      {santri.jenisKelamin === 'L' ? 'Laki-laki' : 'Perempuan'} • 
+                      Masuk: {formatDate(santri.tanggalMasuk)}
+                    </div>
+                  </div>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    getStatusColor(santri.status).bg
+                  } ${getStatusColor(santri.status).text} ${getStatusColor(santri.status).border}`}>
+                    {getStatusLabel(santri.status)}
+                  </span>
+                </div>
+              ))
             )}
+            {userSantri.length > 0 && (
+              <div className="text-xs text-gray-500 mt-1">
+                Total: {userSantri.length} santri
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500 italic">Bukan wali santri</div>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <button
+          onClick={() => !isCurrentUser && onToggleStatus(user)}
+          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+            user.status === 'Aktif' 
+              ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' 
+              : 'bg-red-100 text-red-800 border border-red-200 hover:bg-red-200'
+          } ${
+            isCurrentUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+          }`}
+          disabled={isCurrentUser}
+          title={isCurrentUser ? "Tidak dapat mengubah status sendiri" : "Klik untuk mengubah status"}
+        >
+          {user.status}
+        </button>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(user.tanggalDaftar)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onEdit(user)}
+            className="text-blue-600 hover:text-blue-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Edit User"
+            disabled={!hasPermission('edit_user')}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
           </button>
-          <div className="text-sm text-gray-500">{user.email}</div>
-          <div className="text-xs text-gray-400">ID: {user.id} • Telp: {user.no_telp}</div>
+          <button 
+            onClick={() => !isCurrentUser && onDelete(user)}
+            className="text-red-600 hover:text-red-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title={isCurrentUser ? "Tidak dapat menghapus akun sendiri" : "Hapus User"}
+            disabled={isCurrentUser || !hasPermission('delete_user') || currentUser?.role !== 'super_admin'}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Hapus
+          </button>
         </div>
-      </div>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap">
-      <button
-        onClick={() => !isCurrentUser && onToggleStatus(user)}
-        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-          user.status === 'Aktif' 
-            ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' 
-            : 'bg-red-100 text-red-800 border border-red-200 hover:bg-red-200'
-        } ${
-          isCurrentUser ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-        }`}
-        disabled={isCurrentUser}
-        title={isCurrentUser ? "Tidak dapat mengubah status sendiri" : "Klik untuk mengubah status"}
-      >
-        {user.status}
-      </button>
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-      {new Date(user.tanggalDaftar).toLocaleDateString('id-ID')}
-    </td>
-    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={() => onEdit(user)}
-          className="text-blue-600 hover:text-blue-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Edit User"
-          disabled={!hasPermission('edit_user')}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          Edit
-        </button>
-        <button 
-          onClick={() => !isCurrentUser && onDelete(user)}
-          className="text-red-600 hover:text-red-900 flex items-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          title={isCurrentUser ? "Tidak dapat menghapus akun sendiri" : "Hapus User"}
-          disabled={isCurrentUser || !hasPermission('delete_user') || currentUser?.role !== 'super_admin'}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-          Hapus
-        </button>
-      </div>
-    </td>
-  </tr>
-));
+      </td>
+    </tr>
+  );
+});
 
 export default UserManagement;

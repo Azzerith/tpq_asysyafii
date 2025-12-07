@@ -561,9 +561,7 @@ const DonasiPage = () => {
   // Skeleton loader
   const SkeletonLoader = () => (
     <div className="min-h-screen bg-white pt-20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse">
-          {/* Header*/}
+      {/* Header*/}
       <div className="bg-gradient-to-r from-emerald-700 to-green-600 shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -637,6 +635,8 @@ const DonasiPage = () => {
           </div>
         </div>
       </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="animate-pulse">
           {/* Header Skeleton */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-100">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

@@ -356,19 +356,13 @@ const DataKeuangan = () => {
       // Sheet 1: Summary/Statistik dengan kop surat
       const summarySheetData = [
         // Kop Surat
-        ['', '', '', '', '', ''],
-        ['', '', '', '', '', ''],
-        ['', 'LAPORAN KEUANGAN', '', '', '', ''],
-        ['', `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''}`, '', '', '', ''],
-        ['', `Periode: ${getCurrentPeriodText()}`, '', '', '', ''],
-        ['', '', '', '', '', ''],
-        ['', '', '', '', '', ''],
+        [ 'LAPORAN KEUANGAN', '', '', '', ''],
+        [ `TPQ ${tpqInfo?.nama_tpq || 'ASY-SYAFI\''} ${tpqInfo?.tempat}`, '', '', '', ''],
+        [ '', '', '', '', ''],
         // Informasi TPQ
-        ['INFORMASI TPQ:', '', '', 'PERIODE LAPORAN:', '', ''],
-        [`Nama: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\''}`, '', '', `Periode: ${getCurrentPeriodText()}`, '', ''],
-        [`Alamat: ${tpqInfo?.alamat || '-'}`, '', '', `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
-        [`Telp: ${tpqInfo?.no_telp || '-'}`, '', '', '', '', ''],
-        [`Email: ${tpqInfo?.email || '-'}`, '', '', '', '', ''],
+        [ 'PERIODE LAPORAN:', '', ''],
+        [ `Periode: ${getCurrentPeriodText()}`, '', ''],
+        [`Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`, '', ''],
         ['', '', '', '', '', ''],
         // Summary Keuangan
         ['RINGKASAN KEUANGAN', '', '', '', '', ''],
@@ -668,7 +662,6 @@ const DataKeuangan = () => {
         tpqInfo = infoResult.data;
       }
   
-      // Create comprehensive HTML content for DOCX dengan format surat resmi
       const htmlContent = `
         <html>
           <head>
@@ -736,7 +729,7 @@ const DataKeuangan = () => {
               }
               th, td { 
                 border: 1px solid #000; 
-                padding: 8px; 
+                padding: 6px; 
                 text-align: left; 
                 vertical-align: top;
               }
@@ -782,6 +775,12 @@ const DataKeuangan = () => {
                 border-bottom: 1px solid #000;
                 padding-bottom: 5px;
               }
+              .sub-section-title {
+                margin: 15px 0 8px 0;
+                font-size: 11pt;
+                font-weight: bold;
+                color: #333;
+              }
               .footer {
                 margin-top: 40px;
                 text-align: right;
@@ -801,13 +800,26 @@ const DataKeuangan = () => {
               .ttd-position {
                 font-size: 10pt;
               }
+              .rekap-container {
+                margin: 15px 0;
+              }
+              .rekap-table {
+                margin-bottom: 20px;
+                page-break-inside: avoid;
+              }
+              .table-caption {
+                font-size: 10pt;
+                font-style: italic;
+                margin-bottom: 5px;
+                text-align: center;
+              }
             </style>
           </head>
           <body>
             <!-- Kop Surat -->
             <div class="kop-surat">
               <div class="header-info">
-                <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TAMAN PENDIDIKAN QURAN ASY-SYAFI\'I'}</div>
+                <div class="nama-tpq">${tpqInfo?.nama_tpq || 'TPQ ASY-SYAFI CAMPAKOAH\'I'} ${tpqInfo?.tempat}</div>
                 <div class="alamat-tpq">${tpqInfo?.alamat || 'Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 03 RW 01 Kec. Mrebet - Purbalingga'}</div>
                 <div class="kontak-tpq">
                   Telp: ${tpqInfo?.no_telp || '085643955667'} | Email: ${tpqInfo?.email || 'tpqasysyafiicampakoah@gmail.com'} 
@@ -858,53 +870,130 @@ const DataKeuangan = () => {
             <!-- Rekap Keuangan -->
             ${getFilteredRekap().length > 0 ? `
               <div class="section-title">REKAP KEUANGAN PER PERIODE</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th rowspan="2">Periode</th>
-                    <th colspan="3">Syahriah</th>
-                    <th colspan="3">Donasi</th>
-                    <th colspan="3">Total</th>
-                    <th rowspan="2">Update Terakhir</th>
-                  </tr>
-                  <tr>
-                    <th>Pemasukan</th>
-                    <th>Pengeluaran</th>
-                    <th>Saldo</th>
-                    <th>Pemasukan</th>
-                    <th>Pengeluaran</th>
-                    <th>Saldo</th>
-                    <th>Pemasukan</th>
-                    <th>Pengeluaran</th>
-                    <th>Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${getFilteredRekap().map(item => `
+              
+              <!-- Tabel Syahriah -->
+              <div class="rekap-container">
+                <div class="sub-section-title">A. REKAP SYAHRIYAH</div>
+                <div class="table-caption">Tabel 1: Rekap Keuangan Syahriah per Periode</div>
+                <table class="rekap-table">
+                  <thead>
                     <tr>
-                      <td>${formatPeriod(item.periode)}</td>
-                      <td class="currency positive">${formatCurrency(item.pemasukan_syahriah)}</td>
-                      <td class="currency negative">${formatCurrency(item.pengeluaran_syahriah)}</td>
-                      <td class="currency">${formatCurrency(item.saldo_akhir_syahriah)}</td>
-                      <td class="currency positive">${formatCurrency(item.pemasukan_donasi)}</td>
-                      <td class="currency negative">${formatCurrency(item.pengeluaran_donasi)}</td>
-                      <td class="currency">${formatCurrency(item.saldo_akhir_donasi)}</td>
-                      <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
-                      <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
-                      <td class="currency">${formatCurrency(item.saldo_akhir_total)}</td>
-                      <td style="font-size: 9pt;">${formatDateTime(item.terakhir_update)}</td>
+                      <th>No</th>
+                      <th>Periode</th>
+                      <th>Pemasukan</th>
+                      <th>Pengeluaran</th>
+                      <th>Saldo</th>
+                      <th>Update Terakhir</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${getFilteredRekap().map((item, index) => `
+                      <tr>
+                        <td style="text-align: center;">${index + 1}</td>
+                        <td>${formatPeriod(item.periode)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_syahriah)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_syahriah)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_syahriah)}</td>
+                        <td style="font-size: 9pt;">${formatDateTime(item.terakhir_update)}</td>
+                      </tr>
+                    `).join('')}
+                    <!-- Total Syahriah -->
+                    <tr style="font-weight: bold; background-color: #f5f5f5;">
+                      <td colspan="2" style="text-align: right;">TOTAL SYAHRIYAH:</td>
+                      <td class="currency positive">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pemasukan_syahriah, 0))}</td>
+                      <td class="currency negative">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pengeluaran_syahriah, 0))}</td>
+                      <td class="currency">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.saldo_akhir_syahriah, 0))}</td>
+                      <td>-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+  
+              <!-- Tabel Donasi -->
+              <div class="rekap-container">
+                <div class="sub-section-title">B. REKAP DONASI</div>
+                <div class="table-caption">Tabel 2: Rekap Keuangan Donasi per Periode</div>
+                <table class="rekap-table">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Periode</th>
+                      <th>Pemasukan</th>
+                      <th>Pengeluaran</th>
+                      <th>Saldo</th>
+                      <th>Update Terakhir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredRekap().map((item, index) => `
+                      <tr>
+                        <td style="text-align: center;">${index + 1}</td>
+                        <td>${formatPeriod(item.periode)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_donasi)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_donasi)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_donasi)}</td>
+                        <td style="font-size: 9pt;">${formatDateTime(item.terakhir_update)}</td>
+                      </tr>
+                    `).join('')}
+                    <!-- Total Donasi -->
+                    <tr style="font-weight: bold; background-color: #f5f5f5;">
+                      <td colspan="2" style="text-align: right;">TOTAL DONASI:</td>
+                      <td class="currency positive">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pemasukan_donasi, 0))}</td>
+                      <td class="currency negative">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pengeluaran_donasi, 0))}</td>
+                      <td class="currency">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.saldo_akhir_donasi, 0))}</td>
+                      <td>-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+  
+              <!-- Tabel Ringkasan Total -->
+              <div class="rekap-container">
+                <div class="sub-section-title">C. RINGKASAN TOTAL KESELURUHAN</div>
+                <div class="table-caption">Tabel 3: Ringkasan Total Keuangan per Periode</div>
+                <table class="rekap-table">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Periode</th>
+                      <th>Pemasukan Total</th>
+                      <th>Pengeluaran Total</th>
+                      <th>Saldo Akhir</th>
+                      <th>Update Terakhir</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${getFilteredRekap().map((item, index) => `
+                      <tr>
+                        <td style="text-align: center;">${index + 1}</td>
+                        <td>${formatPeriod(item.periode)}</td>
+                        <td class="currency positive">${formatCurrency(item.pemasukan_total)}</td>
+                        <td class="currency negative">${formatCurrency(item.pengeluaran_total)}</td>
+                        <td class="currency">${formatCurrency(item.saldo_akhir_total)}</td>
+                        <td style="font-size: 9pt;">${formatDateTime(item.terakhir_update)}</td>
+                      </tr>
+                    `).join('')}
+                    <!-- Total Keseluruhan -->
+                    <tr style="font-weight: bold; background-color: #f5f5f5;">
+                      <td colspan="2" style="text-align: right;">TOTAL KESELURUHAN:</td>
+                      <td class="currency positive">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pemasukan_total, 0))}</td>
+                      <td class="currency negative">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.pengeluaran_total, 0))}</td>
+                      <td class="currency">${formatCurrency(getFilteredRekap().reduce((sum, item) => sum + item.saldo_akhir_total, 0))}</td>
+                      <td>-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ` : ''}
   
             <!-- Pengeluaran -->
             ${getFilteredPemakaian().length > 0 ? `
               <div class="section-title">DATA PENGELUARAN</div>
+              <div class="table-caption">Tabel 4: Daftar Pengeluaran</div>
               <table>
                 <thead>
                   <tr>
+                    <th>No</th>
                     <th>Tanggal</th>
                     <th>Keterangan</th>
                     <th>Tipe</th>
@@ -914,22 +1003,23 @@ const DataKeuangan = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${getFilteredPemakaian().map(item => `
+                  ${getFilteredPemakaian().map((item, index) => `
                     <tr>
-                    <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
-                    <td>
-                      <strong>${item.judul_pemakaian}</strong><br>
-                      <small>${item.deskripsi}</small>
-                      ${item.keterangan ? `<br><small><em>Catatan: ${item.keterangan}</em></small>` : ''}
-                    </td>
-                    <td style="text-transform: capitalize;">${item.tipe_pemakaian}</td>
-                    <td>
-                      <div>Syahriah: ${formatCurrency(item.nominal_syahriah)}</div>
-                      <div>Donasi: ${formatCurrency(item.nominal_donasi)}</div>
-                    </td>
-                    <td class="currency negative">${formatCurrency(item.nominal_total)}</td>
-                    <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
-                  </tr>
+                      <td style="text-align: center;">${index + 1}</td>
+                      <td>${item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}</td>
+                      <td>
+                        <strong>${item.judul_pemakaian}</strong><br>
+                        <small>${item.deskripsi}</small>
+                        ${item.keterangan ? `<br><small><em>Catatan: ${item.keterangan}</em></small>` : ''}
+                      </td>
+                      <td style="text-transform: capitalize;">${item.tipe_pemakaian}</td>
+                      <td>
+                        <div>Syahriah: ${formatCurrency(item.nominal_syahriah)}</div>
+                        <div>Donasi: ${formatCurrency(item.nominal_donasi)}</div>
+                      </td>
+                      <td class="currency negative">${formatCurrency(item.nominal_total)}</td>
+                      <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
+                    </tr>
                   `).join('')}
                 </tbody>
               </table>
@@ -938,9 +1028,11 @@ const DataKeuangan = () => {
             <!-- Pemasukan Donasi -->
             ${getFilteredDonasi().length > 0 ? `
               <div class="section-title">DATA PEMASUKAN DONASI</div>
+              <div class="table-caption">Tabel 5: Daftar Pemasukan Donasi</div>
               <table>
                 <thead>
                   <tr>
+                    <th>No</th>
                     <th>Tanggal</th>
                     <th>Nama Donatur</th>
                     <th>Kontak</th>
@@ -949,8 +1041,9 @@ const DataKeuangan = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${getFilteredDonasi().map(item => `
+                  ${getFilteredDonasi().map((item, index) => `
                     <tr>
+                      <td style="text-align: center;">${index + 1}</td>
                       <td>${formatDateTime(item.waktu_catat)}</td>
                       <td>${item.nama_donatur}</td>
                       <td>${item.no_telp || '-'}</td>
@@ -965,9 +1058,11 @@ const DataKeuangan = () => {
             <!-- Pemasukan Syahriah -->
             ${getFilteredSyahriah().length > 0 ? `
               <div class="section-title">DATA PEMASUKAN SYAHRIYAH</div>
+              <div class="table-caption">Tabel 6: Daftar Pemasukan Syahriyah</div>
               <table>
                 <thead>
                   <tr>
+                    <th>No</th>
                     <th>Nama Santri</th>
                     <th>Wali</th>
                     <th>Bulan</th>
@@ -978,8 +1073,9 @@ const DataKeuangan = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${getFilteredSyahriah().map(item => `
+                  ${getFilteredSyahriah().map((item, index) => `
                     <tr>
+                      <td style="text-align: center;">${index + 1}</td>
                       <td>${item.santri?.nama_lengkap || 'N/A'}</td>
                       <td>
                         ${item.santri?.wali?.nama_lengkap || '-'}

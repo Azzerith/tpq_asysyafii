@@ -185,6 +185,7 @@ const Sidebar = () => {
       path: '/super-admin/data',
       icon: <DataIcon />,
       submenu: [
+        { title: 'Data Keluarga Wali', path: '/super-admin/keluarga-wali' },
         { title: 'Data Santri', path: '/super-admin/santri' },
         { title: 'Data Syahriah', path: '/admin/syahriah' },
         { title: 'Data Donasi', path: '/admin/donasi' },

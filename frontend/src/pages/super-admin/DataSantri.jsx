@@ -621,19 +621,6 @@ const DataSantri = () => {
 
         {/* Statistik */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Santri</p>
-                <p className="text-2xl font-bold text-gray-800">{santri.length}</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
             <div className="flex items-center justify-between">
@@ -673,6 +660,19 @@ const DataSantri = () => {
               </div>
               <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                 <span className="text-purple-600 font-medium">♂</span>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Perempuan</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {santri.filter(item => item.jenisKelamin === 'P').length}
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-red-600 font-medium">♀</span>
               </div>
             </div>
           </div>

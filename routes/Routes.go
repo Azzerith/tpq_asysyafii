@@ -194,6 +194,15 @@ func SetupRoutes(r *gin.Engine) {
 			superAdmin.DELETE("/santri/:id", santriController.DeleteSantri)
 			superAdmin.PUT("/santri/:id/status", santriController.UpdateStatusSantri)
 
+			keluargaController := controllers.NewKeluargaController(config.DB)
+			superAdmin.POST("/keluarga", keluargaController.CreateKeluarga)
+			superAdmin.GET("/keluarga", keluargaController.GetAllKeluarga)
+			superAdmin.GET("/keluarga/search", keluargaController.SearchKeluarga)
+			superAdmin.GET("/keluarga/wali/:id_wali", keluargaController.GetKeluargaByWali)
+			superAdmin.GET("/keluarga/:id", keluargaController.GetKeluargaByID)
+			superAdmin.PUT("/keluarga/:id", keluargaController.UpdateKeluarga)
+			superAdmin.DELETE("/keluarga/:id", keluargaController.DeleteKeluarga)
+
 			superAdmin.POST("/berita", beritaController.CreateBerita)
 			superAdmin.GET("/berita/all", beritaController.GetAllBerita)
 			superAdmin.PUT("/berita/:id", beritaController.UpdateBerita)

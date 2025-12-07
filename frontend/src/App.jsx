@@ -26,6 +26,7 @@ import InformasiTPQ from './pages/super-admin/InformasiTPQ';
 import ProgramUnggulanManagement from './pages/super-admin/ProgramUnggulan';
 import SystemManagement from './pages/super-admin/System';
 import DataSantri from './pages/super-admin/DataSantri';
+import DataKeluargaWali from './pages/super-admin/DataKeluargaWali';
 import FasilitasManagement from './pages/super-admin/Fasilitas';
 import TestimoniManagement from './pages/super-admin/Testimoni';
 
@@ -149,6 +150,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute allowedRoles={['super_admin']}>
             <DataSantri />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/super-admin/keluarga-wali" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin']}>
+            <DataKeluargaWali />
           </ProtectedRoute>
         } 
       />

@@ -15,8 +15,12 @@ const DataKeuangan = () => {
   const [donasiData, setDonasiData] = useState([]);
   const [syahriahData, setSyahriahData] = useState([]);
   const [summaryData, setSummaryData] = useState(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('semua');
-  const [availablePeriods, setAvailablePeriods] = useState([]);
+  
+  // State untuk filter seperti di wali
+  const [selectedYear, setSelectedYear] = useState('semua');
+  const [selectedMonth, setSelectedMonth] = useState('semua');
+  const [availableYears, setAvailableYears] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
 
   // State untuk modal
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -43,6 +47,21 @@ const DataKeuangan = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+  const months = [
+    { value: '01', label: 'Januari' },
+    { value: '02', label: 'Februari' },
+    { value: '03', label: 'Maret' },
+    { value: '04', label: 'April' },
+    { value: '05', label: 'Mei' },
+    { value: '06', label: 'Juni' },
+    { value: '07', label: 'Juli' },
+    { value: '08', label: 'Agustus' },
+    { value: '09', label: 'September' },
+    { value: '10', label: 'Oktober' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'Desember' },
+  ];
+
   // Fetch semua data
   useEffect(() => {
     fetchAllData();
@@ -56,7 +75,7 @@ const DataKeuangan = () => {
       const token = localStorage.getItem('token');
       
       // Load data secara parallel untuk admin
-      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse, rekapAllResponse] = await Promise.all([
+      const [rekapResponse, pemakaianResponse, donasiResponse, syahriahResponse] = await Promise.all([
         fetch(`${API_URL}/api/admin/rekap?limit=100`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -80,12 +99,6 @@ const DataKeuangan = () => {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
-        }),
-        fetch(`${API_URL}/api/admin/rekap?limit=1000`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
         })
       ]);
 
@@ -94,25 +107,31 @@ const DataKeuangan = () => {
       if (!pemakaianResponse.ok) throw new Error('Gagal memuat data pemakaian');
       if (!donasiResponse.ok) throw new Error('Gagal memuat data donasi');
       if (!syahriahResponse.ok) throw new Error('Gagal memuat data syahriah');
-      if (!rekapAllResponse.ok) throw new Error('Gagal memuat semua data rekap');
 
       const rekapResult = await rekapResponse.json();
       const pemakaianResult = await pemakaianResponse.json();
       const donasiResult = await donasiResponse.json();
       const syahriahResult = await syahriahResponse.json();
-      const rekapAllResult = await rekapAllResponse.json();
 
       setRekapData(rekapResult.data || []);
       setPemakaianData(pemakaianResult.data || []);
       setDonasiData(donasiResult.data || []);
       setSyahriahData(syahriahResult.data || []);
 
-      // Extract unique periods
-      const periods = [...new Set(rekapAllResult.data.map(item => item.periode))].sort().reverse();
-      setAvailablePeriods(periods);
+      // Extract unique years dari data rekap
+      const periods = rekapResult.data.map(item => item.periode);
+      const years = [...new Set(periods.map(p => p.split('-')[0]))].sort((a, b) => b - a);
+      setAvailableYears(years);
 
-      // Calculate summary data dari tabel rekap saja
-      calculateSummaryFromRekap(rekapAllResult.data);
+      // Set tahun terpilih ke tahun saat ini jika belum dipilih
+      if (!selectedYear || selectedYear === 'semua') {
+        const currentYear = new Date().getFullYear().toString();
+        if (years.includes(currentYear)) {
+          setSelectedYear(currentYear);
+        } else if (years.length > 0) {
+          setSelectedYear(years[0]);
+        }
+      }
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -123,9 +142,41 @@ const DataKeuangan = () => {
     }
   };
 
-  // PERBAIKAN: Hitung summary hanya dari data rekap saldo
-  const calculateSummaryFromRekap = (rekapData) => {
-    if (!rekapData || rekapData.length === 0) {
+  // Update available months when year changes
+  useEffect(() => {
+    if (rekapData.length > 0) {
+      const periods = rekapData.map(item => item.periode);
+      
+      if (selectedYear === 'semua') {
+        // Jika semua tahun, tampilkan semua bulan yang ada
+        const allMonths = [...new Set(
+          periods.map(p => p.split('-')[1])
+        )].sort();
+        setAvailableMonths(allMonths);
+      } else {
+        // Jika tahun spesifik, tampilkan bulan untuk tahun tersebut
+        const monthsForYear = [...new Set(
+          periods
+            .filter(p => p.startsWith(selectedYear))
+            .map(p => p.split('-')[1])
+        )].sort();
+        setAvailableMonths(monthsForYear);
+      }
+      
+      // Reset month to "semua" if selected month is not available for the new year
+      if (selectedMonth !== 'semua' && !availableMonths.includes(selectedMonth)) {
+        setSelectedMonth('semua');
+      }
+    }
+  }, [selectedYear, rekapData]);
+
+  // PERBAIKAN: Hitung summary berdasarkan filter tahun dan bulan
+  useEffect(() => {
+    calculateSummary();
+  }, [selectedYear, selectedMonth, rekapData, pemakaianData, donasiData, syahriahData]);
+
+  const calculateSummary = () => {
+    if (rekapData.length === 0) {
       setSummaryData({
         totalPemasukan: 0,
         totalPengeluaran: 0,
@@ -138,67 +189,96 @@ const DataKeuangan = () => {
       return;
     }
 
-    // Filter data berdasarkan periode yang dipilih
-    const filteredRekap = selectedPeriod === 'semua' 
-      ? rekapData 
-      : rekapData.filter(item => item.periode === selectedPeriod);
-
-    if (filteredRekap.length === 0) {
-      // Jika tidak ada data untuk periode tertentu, gunakan data terbaru
-      const latestRekap = rekapData[0]; // Data sudah diurutkan descending
-      setSummaryData({
-        totalPemasukan: latestRekap.pemasukan_total || 0,
-        totalPengeluaran: latestRekap.pengeluaran_total || 0,
-        saldoAkhir: latestRekap.saldo_akhir_total || 0,
-        totalDonasi: latestRekap.pemasukan_donasi || 0,
-        totalSyahriah: latestRekap.pemasukan_syahriah || 0,
-        saldoSyahriah: latestRekap.saldo_akhir_syahriah || 0,
-        saldoDonasi: latestRekap.saldo_akhir_donasi || 0
-      });
-      return;
-    }
-
-    if (selectedPeriod === 'semua') {
-      // Untuk semua periode, hitung kumulatif
-      const totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
-      const totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
-      const totalDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
-      const totalSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
-      
-      // Untuk saldo akhir, ambil dari data terbaru
-      const latestRekap = filteredRekap[0]; // Data sudah diurutkan descending
-      
-      setSummaryData({
-        totalPemasukan,
-        totalPengeluaran,
-        saldoAkhir: latestRekap.saldo_akhir_total || 0,
-        totalDonasi,
-        totalSyahriah,
-        saldoSyahriah: latestRekap.saldo_akhir_syahriah || 0,
-        saldoDonasi: latestRekap.saldo_akhir_donasi || 0
-      });
-    } else {
-      // Untuk periode tertentu, ambil data dari rekap periode tersebut
-      const currentRekap = filteredRekap[0]; // Hanya ada satu rekap per periode
-      
-      setSummaryData({
-        totalPemasukan: currentRekap.pemasukan_total || 0,
-        totalPengeluaran: currentRekap.pengeluaran_total || 0,
-        saldoAkhir: currentRekap.saldo_akhir_total || 0,
-        totalDonasi: currentRekap.pemasukan_donasi || 0,
-        totalSyahriah: currentRekap.pemasukan_syahriah || 0,
-        saldoSyahriah: currentRekap.saldo_akhir_syahriah || 0,
-        saldoDonasi: currentRekap.saldo_akhir_donasi || 0
+    let filteredRekap = rekapData;
+    
+    // Filter data berdasarkan tahun dan bulan yang dipilih
+    if (selectedYear !== 'semua' || selectedMonth !== 'semua') {
+      filteredRekap = rekapData.filter(item => {
+        const [year, month] = item.periode.split('-');
+        
+        // Filter by year
+        if (selectedYear !== 'semua' && year !== selectedYear) return false;
+        
+        // Filter by month if selected
+        if (selectedMonth !== 'semua' && month !== selectedMonth) return false;
+        
+        return true;
       });
     }
+
+    // Hitung summary dari data rekap yang sudah difilter
+    let totalPemasukanSyahriah = 0;
+    let totalPemasukanDonasi = 0;
+    let totalPengeluaranSyahriah = 0;
+    let totalPengeluaranDonasi = 0;
+    let totalPemasukan = 0;
+    let totalPengeluaran = 0;
+    let saldoAkhir = 0;
+    let saldoSyahriah = 0;
+    let saldoDonasi = 0;
+
+    if (filteredRekap.length > 0) {
+      if (selectedMonth === 'semua' && selectedYear === 'semua') {
+        // Untuk "semua periode", jumlahkan semua data
+        totalPemasukanSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+        totalPemasukanDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+        totalPengeluaranSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
+        totalPengeluaranDonasi = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
+        totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+        totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+        
+        // Untuk saldo akhir di semua periode, ambil saldo terakhir
+        const latestPeriod = rekapData.length > 0 ? rekapData[0].periode : null;
+        const latestRekap = rekapData.find(item => item.periode === latestPeriod);
+        saldoAkhir = latestRekap?.saldo_akhir_total || 0;
+        saldoSyahriah = latestRekap?.saldo_akhir_syahriah || 0;
+        saldoDonasi = latestRekap?.saldo_akhir_donasi || 0;
+      } else if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+        // Untuk tahun tertentu (semua bulan)
+        totalPemasukanSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+        totalPemasukanDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+        totalPengeluaranSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
+        totalPengeluaranDonasi = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
+        totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+        totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+        
+        // Untuk saldo akhir di tahun tertentu, ambil saldo terakhir dari tahun tersebut
+        const latestRekapForYear = filteredRekap[0]; // Data sudah diurutkan descending
+        saldoAkhir = latestRekapForYear?.saldo_akhir_total || 0;
+        saldoSyahriah = latestRekapForYear?.saldo_akhir_syahriah || 0;
+        saldoDonasi = latestRekapForYear?.saldo_akhir_donasi || 0;
+      } else if (selectedMonth !== 'semua') {
+        // Untuk bulan tertentu (dengan atau tanpa tahun spesifik)
+        totalPemasukanSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_syahriah || 0), 0);
+        totalPemasukanDonasi = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_donasi || 0), 0);
+        totalPengeluaranSyahriah = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_syahriah || 0), 0);
+        totalPengeluaranDonasi = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_donasi || 0), 0);
+        totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+        totalPengeluaran = filteredRekap.reduce((sum, item) => sum + (item.pengeluaran_total || 0), 0);
+        
+        // Untuk saldo akhir bulan tertentu, ambil saldo terakhir dari bulan tersebut
+        if (filteredRekap.length > 0) {
+          saldoAkhir = filteredRekap[0]?.saldo_akhir_total || 0;
+          saldoSyahriah = filteredRekap[0]?.saldo_akhir_syahriah || 0;
+          saldoDonasi = filteredRekap[0]?.saldo_akhir_donasi || 0;
+        }
+      }
+    }
+
+    setSummaryData({
+      totalPemasukan,
+      totalPengeluaran,
+      saldoAkhir,
+      totalDonasi: totalPemasukanDonasi,
+      totalSyahriah: totalPemasukanSyahriah,
+      saldoSyahriah,
+      saldoDonasi,
+      totalPemasukanSyahriah,
+      totalPemasukanDonasi,
+      totalPengeluaranSyahriah,
+      totalPengeluaranDonasi
+    });
   };
-
-  // Recalculate summary ketika periode berubah
-  useEffect(() => {
-    if (rekapData.length > 0) {
-      calculateSummaryFromRekap(rekapData);
-    }
-  }, [selectedPeriod, rekapData]);
 
   // ========== FORMAT CURRENCY IMPROVED ==========
   const formatCurrency = (amount) => {
@@ -236,6 +316,22 @@ const DataKeuangan = () => {
   };
 
   // ========== EXPORT FUNCTIONS ==========
+  const getCurrentPeriodText = () => {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') return 'Semua Periode';
+    if (selectedMonth === 'semua') return `Tahun ${selectedYear}`;
+    if (selectedYear === 'semua') {
+      const monthObj = months.find(m => m.value === selectedMonth);
+      return `Bulan ${monthObj?.label || selectedMonth} (Semua Tahun)`;
+    }
+    return formatPeriod(`${selectedYear}-${selectedMonth}`);
+  };
+
+  // Helper untuk mendapatkan periode yang dipilih untuk export
+  const getSelectedPeriodForExport = () => {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') return 'semua';
+    if (selectedMonth === 'semua') return selectedYear;
+    return `${selectedYear}-${selectedMonth}`;
+  };
   const exportToXLSX = async () => {
     setExportLoading(true);
     try {
@@ -398,8 +494,10 @@ const DataKeuangan = () => {
         XLSX.utils.sheet_add_json(wsSyahriah, syahriahDataToExport, { origin: 'A5', skipHeader: false });
         XLSX.utils.book_append_sheet(wb, wsSyahriah, 'Pemasukan Syahriah');
       }
-
-      XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  
+      // Generate filename berdasarkan periode yang dipilih
+      const periodForFilename = getSelectedPeriodForExport();
+      XLSX.writeFile(wb, `${fileName}_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${periodForFilename === 'semua' ? 'Semua_Periode' : periodForFilename}_${new Date().toISOString().split('T')[0]}.xlsx`);
       showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Excel`, 'success');
     } catch (err) {
       console.error('Error exporting to Excel:', err);
@@ -408,56 +506,57 @@ const DataKeuangan = () => {
       setExportLoading(false);
     }
   };
-
-const exportToCSV = async () => {
-  setExportLoading(true);
-  try {
-    // Ambil informasi TPQ
-    const token = localStorage.getItem('token');
-    const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+  
+  const exportToCSV = async () => {
+    setExportLoading(true);
+    try {
+      // Ambil informasi TPQ
+      const token = localStorage.getItem('token');
+      const infoResponse = await fetch(`${API_URL}/api/informasi-tpq`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      let tpqInfo = null;
+      if (infoResponse.ok) {
+        const infoResult = await infoResponse.json();
+        tpqInfo = infoResult.data;
       }
-    });
-
-    let tpqInfo = null;
-    if (infoResponse.ok) {
-      const infoResult = await infoResponse.json();
-      tpqInfo = infoResult.data;
-    }
-
-    let allData = [];
-    let fileName = 'Laporan_Keuangan_Lengkap';
-
-    // Header untuk file CSV dengan informasi TPQ
-    const header = [
-      'LAPORAN KEUANGAN - TPQ ASY-SYAFI\'I',
-      `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
-      `Alamat: ${tpqInfo?.alamat || '-'}`,
-      `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
-      `Email: ${tpqInfo?.email || '-'}`,
-      `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
-      '',
-      `Periode: ${getCurrentPeriodText()}`,
-      `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
-      ''
-    ];
-
-    // Section 1: Summary
-    const summarySection = [
-      'SUMMARY KEUANGAN',
-      'Kategori,Nilai',
-      `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
-      `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
-      `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
-      `Saldo Donasi,${summaryData?.saldoDonasi || 0}`,
-      `Saldo Syahriah,${summaryData?.saldoSyahriah || 0}`,
-      ''
-    ];
-
-    allData = [...header, ...summarySection];
-      // Section 2: Rekap Keuangan - PERBAIKAN: Sesuaikan dengan struktur baru
+  
+      let allData = [];
+      let fileName = 'Laporan_Keuangan_Lengkap';
+  
+      // Header untuk file CSV dengan informasi TPQ
+      const header = [
+        'LAPORAN KEUANGAN - TPQ ASY-SYAFI\'I',
+        `Nama TPQ: ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}`,
+        `Alamat: ${tpqInfo?.alamat || '-'}`,
+        `No. Telepon: ${tpqInfo?.no_telp || '-'}`,
+        `Email: ${tpqInfo?.email || '-'}`,
+        `Hari & Jam Belajar: ${tpqInfo?.hari_jam_belajar || '-'}`,
+        '',
+        `Periode: ${getCurrentPeriodText()}`,
+        `Tanggal Export: ${new Date().toLocaleDateString('id-ID')}`,
+        ''
+      ];
+  
+      // Section 1: Summary
+      const summarySection = [
+        'SUMMARY KEUANGAN',
+        'Kategori,Nilai',
+        `Total Pemasukan,${summaryData?.totalPemasukan || 0}`,
+        `Total Pengeluaran,${summaryData?.totalPengeluaran || 0}`,
+        `Saldo Akhir,${summaryData?.saldoAkhir || 0}`,
+        `Saldo Donasi,${summaryData?.saldoDonasi || 0}`,
+        `Saldo Syahriah,${summaryData?.saldoSyahriah || 0}`,
+        ''
+      ];
+  
+      allData = [...header, ...summarySection];
+      
+      // Section 2: Rekap Keuangan
       const rekapData = getFilteredRekap();
       if (rekapData.length > 0) {
         allData.push('REKAP KEUANGAN');
@@ -479,7 +578,7 @@ const exportToCSV = async () => {
         });
         allData.push('');
       }
-
+  
       // Section 3: Pengeluaran
       const pemakaianData = getFilteredPemakaian();
       if (pemakaianData.length > 0) {
@@ -500,7 +599,7 @@ const exportToCSV = async () => {
         });
         allData.push('');
       }
-
+  
       // Section 4: Pemasukan Donasi
       const donasiData = getFilteredDonasi();
       if (donasiData.length > 0) {
@@ -517,30 +616,31 @@ const exportToCSV = async () => {
         });
         allData.push('');
       }
-
+  
       // Section 5: Pemasukan Syahriah
       const syahriahData = getFilteredSyahriah();
-if (syahriahData.length > 0) {
-  allData.push('DATA PEMASUKAN SYAHRIYAH');
-  allData.push('Nama Santri,Wali,Email Wali,No. Telepon Wali,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
-  syahriahData.forEach(item => {
-    allData.push([
-      `"${item.santri?.nama_lengkap || 'N/A'}"`,
-      `"${item.santri?.wali?.nama_lengkap || '-'}"`,
-      item.santri?.wali?.email || '-',
-      item.santri?.wali?.no_telp || '-',
-      formatPeriod(item.bulan),
-      item.nominal,
-      item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
-      item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
-      item.admin?.nama_lengkap || 'Admin'
-    ].join(','));
-  });
-}
-
+      if (syahriahData.length > 0) {
+        allData.push('DATA PEMASUKAN SYAHRIYAH');
+        allData.push('Nama Santri,Wali,Email Wali,No. Telepon Wali,Bulan,Nominal,Status,Tanggal Bayar,Dicatat Oleh');
+        syahriahData.forEach(item => {
+          allData.push([
+            `"${item.santri?.nama_lengkap || 'N/A'}"`,
+            `"${item.santri?.wali?.nama_lengkap || '-'}"`,
+            item.santri?.wali?.email || '-',
+            item.santri?.wali?.no_telp || '-',
+            formatPeriod(item.bulan),
+            item.nominal,
+            item.status === 'lunas' ? 'Lunas' : 'Belum Bayar',
+            item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-',
+            item.admin?.nama_lengkap || 'Admin'
+          ].join(','));
+        });
+      }
+  
       const csvContent = allData.join('\n');
+      const periodForFilename = getSelectedPeriodForExport();
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      saveAs(blob, `${fileName}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
+      saveAs(blob, `${fileName}_${periodForFilename === 'semua' ? 'Semua_Periode' : periodForFilename}_${new Date().toISOString().split('T')[0]}.csv`);
       showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke CSV`, 'success');
     } catch (err) {
       console.error('Error exporting to CSV:', err);
@@ -549,7 +649,7 @@ if (syahriahData.length > 0) {
       setExportLoading(false);
     }
   };
-
+  
   const exportToDOCX = async () => {
     setExportLoading(true);
     try {
@@ -823,8 +923,10 @@ if (syahriahData.length > 0) {
                       ${item.keterangan ? `<br><small><em>Catatan: ${item.keterangan}</em></small>` : ''}
                     </td>
                     <td style="text-transform: capitalize;">${item.tipe_pemakaian}</td>
-                    <td class="currency negative">${formatCurrency(item.nominal_syahriah)}</td>
-                    <td class="currency negative">${formatCurrency(item.nominal_donasi)}</td>
+                    <td>
+                      <div>Syahriah: ${formatCurrency(item.nominal_syahriah)}</div>
+                      <div>Donasi: ${formatCurrency(item.nominal_donasi)}</div>
+                    </td>
                     <td class="currency negative">${formatCurrency(item.nominal_total)}</td>
                     <td>${item.pengaju?.nama_lengkap || 'Admin'}</td>
                   </tr>
@@ -918,8 +1020,9 @@ if (syahriahData.length > 0) {
         </html>
       `;
   
+      const periodForFilename = getSelectedPeriodForExport();
       const blob = new Blob([htmlContent], { type: 'application/msword' });
-      saveAs(blob, `Laporan_Keuangan_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${selectedPeriod === 'semua' ? 'Semua_Periode' : selectedPeriod}_${new Date().toISOString().split('T')[0]}.doc`);
+      saveAs(blob, `Laporan_Keuangan_${tpqInfo?.nama_tpq?.replace(/\s+/g, '_') || 'TPQ_Asy_Syafii'}_${periodForFilename === 'semua' ? 'Semua_Periode' : periodForFilename}_${new Date().toISOString().split('T')[0]}.doc`);
       showAlert('Berhasil', `Laporan keuangan lengkap berhasil diexport ke Word`, 'success');
     } catch (err) {
       console.error('Error exporting to DOCX:', err);
@@ -928,6 +1031,7 @@ if (syahriahData.length > 0) {
       setExportLoading(false);
     }
   };
+  
 
   // ========== CRUD FUNCTIONS FOR PEMAKAIAN ==========
   const handleCreatePemakaian = async (e) => {
@@ -1167,50 +1271,93 @@ if (syahriahData.length > 0) {
     }
   };
 
-  // PERBAIKAN: Filter rekap tidak perlu berdasarkan tipe_saldo lagi
   const getFilteredRekap = () => {
-    if (selectedPeriod === 'semua') {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
       return rekapData;
     }
-    return rekapData.filter(item => item.periode === selectedPeriod);
+    
+    if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+      // Filter hanya berdasarkan tahun
+      return rekapData.filter(item => item.periode.startsWith(selectedYear));
+    }
+    
+    if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+      // Filter hanya berdasarkan bulan (semua tahun)
+      return rekapData.filter(item => item.periode.endsWith(`-${selectedMonth}`));
+    }
+    
+    // Filter berdasarkan tahun dan bulan
+    return rekapData.filter(item => item.periode === `${selectedYear}-${selectedMonth}`);
   };
 
   const getFilteredPemakaian = () => {
-    if (selectedPeriod === 'semua') {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
       return pemakaianData;
     }
+    
     return pemakaianData.filter(item => {
-      const itemPeriod = item.tanggal_pemakaian 
-        ? new Date(item.tanggal_pemakaian).toISOString().slice(0, 7)
-        : new Date(item.created_at).toISOString().slice(0, 7);
-      return itemPeriod === selectedPeriod;
+      const itemDate = item.tanggal_pemakaian || item.created_at;
+      const itemYear = new Date(itemDate).getFullYear().toString();
+      const itemMonth = (new Date(itemDate).getMonth() + 1).toString().padStart(2, '0');
+      
+      if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+        return itemYear === selectedYear;
+      }
+      
+      if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+        return itemMonth === selectedMonth;
+      }
+      
+      return itemYear === selectedYear && itemMonth === selectedMonth;
     });
   };
 
   const getFilteredDonasi = () => {
-    if (selectedPeriod === 'semua') {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
       return donasiData;
     }
+    
     return donasiData.filter(item => {
-      const itemPeriod = new Date(item.waktu_catat).toISOString().slice(0, 7);
-      return itemPeriod === selectedPeriod;
+      const itemYear = new Date(item.waktu_catat).getFullYear().toString();
+      const itemMonth = (new Date(item.waktu_catat).getMonth() + 1).toString().padStart(2, '0');
+      
+      if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+        return itemYear === selectedYear;
+      }
+      
+      if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+        return itemMonth === selectedMonth;
+      }
+      
+      return itemYear === selectedYear && itemMonth === selectedMonth;
     });
   };
 
   const getFilteredSyahriah = () => {
-    if (selectedPeriod === 'semua') {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
       return syahriahData;
     }
-    return syahriahData.filter(item => {
-      return item.bulan === selectedPeriod;
-    });
-  };
-
-  const getCurrentPeriodText = () => {
-    if (selectedPeriod === 'semua') {
-      return 'Semua Periode';
+    
+    if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+      // Filter berdasarkan tahun
+      return syahriahData.filter(item => {
+        const itemYear = item.bulan.split('-')[0];
+        return itemYear === selectedYear;
+      });
     }
-    return formatPeriod(selectedPeriod);
+    
+    if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+      // Filter berdasarkan bulan (semua tahun)
+      return syahriahData.filter(item => {
+        const itemMonth = item.bulan.split('-')[1];
+        return itemMonth === selectedMonth;
+      });
+    }
+    
+    // Filter berdasarkan bulan dan tahun spesifik
+    return syahriahData.filter(item => {
+      return item.bulan === `${selectedYear}-${selectedMonth}`;
+    });
   };
 
   const handleGenerateRekap = async () => {
@@ -1350,172 +1497,117 @@ if (syahriahData.length > 0) {
     switch (activeTab) {
       case 'rekap':
         return (
-          <div className="overflow-x-auto">
-            {filteredRekap.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Rekap</h3>
-                <p className="text-green-600 mb-4">Data rekap keuangan akan muncul setelah ada transaksi</p>
-                <button
-                  onClick={handleGenerateRekap}
-                  disabled={loading}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
-                >
-                  {loading ? 'Generating...' : 'Generate Rekap Otomatis'}
-                </button>
-              </div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Periode</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Syahriah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Syahriah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Syahriah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Donasi</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Donasi</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Donasi</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pemasukan Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengeluaran Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo Akhir</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Update Terakhir</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRekap.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {formatPeriod(item.periode)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                        {formatCurrency(item.pemasukan_syahriah)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        {formatCurrency(item.pengeluaran_syahriah)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
-                        {formatCurrency(item.saldo_akhir_syahriah)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                        {formatCurrency(item.pemasukan_donasi)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        {formatCurrency(item.pengeluaran_donasi)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
-                        {formatCurrency(item.saldo_akhir_donasi)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
-                        {formatCurrency(item.pemasukan_total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
-                        {formatCurrency(item.pengeluaran_total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium">
-                        {formatCurrency(item.saldo_akhir_total)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(item.terakhir_update)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        );
-      
-        case 'pengeluaran':
-          return (
-            <div className="overflow-x-auto">
-              {filteredPemakaian.length === 0 ? (
+          <>
+            {/* Desktop View - Full Table */}
+            <div className="hidden md:block overflow-x-auto">
+              {filteredRekap.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
-                  <p className="text-green-600 mb-4">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
-                  <button
-                    onClick={handleOpenCreateModal}
-                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
-                  >
-                    {icons.plus}
-                    <span className="ml-2">Tambah Pengeluaran</span>
-                  </button>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Rekap</h3>
+                  <p className="text-green-600">Data rekap keuangan akan muncul setelah ada transaksi</p>
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-green-600">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keterangan</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dana Syahriah</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dana Donasi</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Diajukan Oleh</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-green-900 bg-green-50 uppercase">Periode</th>
+                      
+                      {/* Header Syahriah */}
+                      <th colSpan="3" className="px-6 py-3 text-center text-xs font-medium bg-orange-600 uppercase text-orange-50 border-x border-orange-200">
+                        <div className="flex items-center justify-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                          </svg>
+                          Dana Syahriah
+                        </div>
+                      </th>
+                      
+                      {/* Header Donasi */}
+                      <th colSpan="3" className="px-6 py-3 text-center text-xs font-medium bg-purple-600 uppercase text-purple-50 border-x border-purple-200">
+                        <div className="flex items-center justify-center">
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                          Dana Donasi
+                        </div>
+                      </th>
+                      
+                      <th colSpan="3" className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Ringkasan</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Update Terakhir</th>
+                    </tr>
+                    
+                    {/* Sub-header */}
+                    <tr>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-900 uppercase bg-green-50"></th>
+                      
+                      {/* Syahriah Sub-headers */}
+                      <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">Pemasukan</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50">Pengeluaran</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">Saldo</th>
+                      
+                      {/* Donasi Sub-headers */}
+                      <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50">Pemasukan</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50">Pengeluaran</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50 border-x border-purple-100">Saldo</th>
+                      
+                      {/* Ringkasan Sub-headers */}
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50">Pemasukan</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50">Pengeluaran</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50">Saldo Akhir</th>
+                      
+                      <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50"></th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPemakaian.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                  <tbody className="bg-white divide-y divide-green-100">
+                    {filteredRekap.map((item, index) => (
+                      <tr key={index} className="hover:bg-green-50 transition-colors">
+                        {/* Periode */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatPeriod(item.periode)}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div>
-                            <div className="font-medium">{item.judul_pemakaian}</div>
-                            <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
-                            {item.keterangan && (
-                              <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
-                            )}
-                          </div>
+                        
+                        {/* Syahriah Columns */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium bg-orange-50/30 border-x border-orange-100">
+                          {formatCurrency(item.pemasukan_syahriah)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
-                            item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
-                            item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {item.tipe_pemakaian}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium bg-orange-50/30">
+                          {formatCurrency(item.pengeluaran_syahriah)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium bg-orange-50/30 border-x border-orange-100">
+                          {formatCurrency(item.saldo_akhir_syahriah)}
+                        </td>
+                        
+                        {/* Donasi Columns */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium bg-purple-50/30">
+                          {formatCurrency(item.pemasukan_donasi)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium bg-purple-50/30">
+                          {formatCurrency(item.pengeluaran_donasi)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium bg-purple-50/30 border-x border-purple-100">
+                          {formatCurrency(item.saldo_akhir_donasi)}
+                        </td>
+                        
+                        {/* Ringkasan Columns */}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium bg-green-50/30">
+                          {formatCurrency(item.pemasukan_total)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium bg-green-50/30">
+                          {formatCurrency(item.pengeluaran_total)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold bg-green-50/30">
+                          <span className={item.saldo_akhir_total >= 0 ? 'text-green-800' : 'text-red-800'}>
+                            {formatCurrency(item.saldo_akhir_total)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600">
-                          {formatCurrency(item.nominal_syahriah)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600">
-                          {formatCurrency(item.nominal_donasi)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
-                          {formatCurrency(item.nominal_total)}
-                        </td>
+                        
+                        {/* Update Terakhir */}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.pengaju?.nama_lengkap || 'Admin'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleOpenEditModal(item)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors"
-                              title="Edit"
-                            >
-                              {icons.edit}
-                            </button>
-                            <button
-                              onClick={() => handleDeletePemakaian(item.id_pemakaian)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
-                              title="Hapus"
-                            >
-                              {icons.delete}
-                            </button>
-                          </div>
+                          {formatDateTime(item.terakhir_update)}
                         </td>
                       </tr>
                     ))}
@@ -1523,7 +1615,422 @@ if (syahriahData.length > 0) {
                 </table>
               )}
             </div>
-          );
+
+            {/* Mobile View - Separate Tables */}
+            <div className="md:hidden space-y-6">
+              {filteredRekap.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Data Rekap</h3>
+                  <p className="text-green-600">Data rekap keuangan akan muncul setelah ada transaksi</p>
+                </div>
+              ) : (
+                filteredRekap.map((item, index) => (
+                  <div key={index} className="space-y-4">
+                    {/* Header Periode */}
+                    <div className="bg-green-600 px-4 py-3 rounded-t-lg border border-green-200">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-semibold text-white">{formatPeriod(item.periode)}</h3>
+                        <span className="text-xs text-green-600">
+                          Update: {formatDateTime(item.terakhir_update)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Table 1: Dana Syahriah */}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-orange-100 border border-orange-200 rounded-lg">
+                        <thead>
+                          <tr className="bg-orange-50">
+                            <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium bg-orange-600 text-white uppercase">
+                              <div className="flex items-center justify-center">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                </svg>
+                                Dana Syahriah
+                              </div>
+                            </th>
+                          </tr>
+                          <tr className="bg-orange-100">
+                            <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Pemasukan</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Pengeluaran</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-orange-800 uppercase w-1/3">Saldo Bulan ini</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-orange-100">
+                          <tr>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                              {formatCurrency(item.pemasukan_syahriah)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600">
+                              {formatCurrency(item.pengeluaran_syahriah)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                              {formatCurrency(item.saldo_akhir_syahriah)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Table 2: Dana Donasi */}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-purple-100 border border-purple-200 rounded-lg">
+                        <thead>
+                          <tr className="bg-purple-50">
+                            <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium bg-purple-600 text-white uppercase">
+                              <div className="flex items-center justify-center">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                                Dana Donasi
+                              </div>
+                            </th>
+                          </tr>
+                          <tr className="bg-purple-100">
+                            <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Pemasukan</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Pengeluaran</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-purple-800 uppercase w-1/3">Saldo Bulan ini</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-purple-100">
+                          <tr>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                              {formatCurrency(item.pemasukan_donasi)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-red-600">
+                              {formatCurrency(item.pengeluaran_donasi)}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600">
+                              {formatCurrency(item.saldo_akhir_donasi)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Table 3: Ringkasan Total */}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-green-100 border border-green-200 rounded-lg">
+                        <thead>
+                          <tr className="bg-green-50">
+                            <th colSpan="3" className="px-4 py-3 text-center text-xs font-medium text-green-800 uppercase">
+                              <div className="flex items-center justify-center">
+                                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                                Ringkasan Total
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-green-100">
+                          <tr>
+                            <td className="px-4 py-3 border-b border-green-100">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-green-600">Total Pemasukan</span>
+                                <span className="font-semibold text-green-700">
+                                  {formatCurrency(item.pemasukan_total)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3 border-b border-green-100">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-red-600">Total Pengeluaran</span>
+                                <span className="font-semibold text-red-700">
+                                  {formatCurrency(item.pengeluaran_total)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="px-4 py-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-blue-600">Saldo Akhir {formatPeriod(item.periode)}</span>
+                                <span className={`text-lg font-bold ${item.saldo_akhir_total >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                  {formatCurrency(item.saldo_akhir_total)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        );
+      
+      case 'pengeluaran':
+        return (
+          <div className="overflow-x-auto">
+            {filteredPemakaian.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pengeluaran</h3>
+                <p className="text-green-600 mb-4">Data pengeluaran akan muncul setelah ada pemakaian saldo</p>
+                <button
+                  onClick={handleOpenCreateModal}
+                  className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Tambah Pengeluaran</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-green-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Keterangan</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tipe</th>
+                        
+                        {/* Header Dana dengan Separator */}
+                        <th colSpan="3" className="px-6 py-3 text-center text-xs font-medium text-white uppercase border-x border-green-200">
+                          Sumber Dana
+                        </th>
+                        
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Diajukan Oleh</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Aksi</th>
+                      </tr>
+                      
+                      {/* Sub-header untuk Sumber Dana */}
+                      <tr>
+                        <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                        <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                        <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                        
+                        {/* Dana Syahriah */}
+                        <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-orange-600 border-x border-orange-100">
+                          <div className="flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                            </svg>
+                            Syahriah
+                          </div>
+                        </th>
+                        
+                        {/* Dana Donasi */}
+                        <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-purple-600">
+                          <div className="flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            Donasi
+                          </div>
+                        </th>
+                        
+                        {/* Total */}
+                        <th className="px-6 py-2 text-left text-xs font-medium text-white uppercase bg-red-600 border-x border-red-100">
+                          Total
+                        </th>
+                        
+                        <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                        <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-600"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-green-100">
+                      {filteredPemakaian.map((item, index) => (
+                        <tr key={index} className="hover:bg-green-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900">
+                            <div>
+                              <div className="font-medium">{item.judul_pemakaian}</div>
+                              <div className="text-gray-500 text-xs mt-1">{item.deskripsi}</div>
+                              {item.keterangan && (
+                                <div className="text-gray-400 text-xs mt-1">Catatan: {item.keterangan}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize ${
+                              item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                              item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {item.tipe_pemakaian}
+                            </span>
+                          </td>
+                          
+                          {/* Dana Syahriah */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-orange-600 bg-orange-50/30 border-x border-orange-100">
+                            {formatCurrency(item.nominal_syahriah)}
+                          </td>
+                          
+                          {/* Dana Donasi */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-purple-600 bg-purple-50/30">
+                            {formatCurrency(item.nominal_donasi)}
+                          </td>
+                          
+                          {/* Total */}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600 bg-red-50/30 border-x border-red-100">
+                            {formatCurrency(item.nominal_total)}
+                          </td>
+                          
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.pengaju?.nama_lengkap || 'Admin'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleOpenEditModal(item)}
+                                className="text-blue-600 hover:text-blue-900 transition-colors"
+                                title="Edit"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeletePemakaian(item.id_pemakaian)}
+                                className="text-red-600 hover:text-red-900 transition-colors"
+                                title="Hapus"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                    <thead>
+                      <tr className="bg-green-600">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Pengeluaran</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Detail</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredPemakaian.map((item, index) => (
+                        <>
+                          <tr key={`${index}-main`} className="border-b border-gray-100">
+                            <td className="px-4 py-3">
+                              <div className="space-y-1">
+                                <div className="font-medium text-gray-900">{item.judul_pemakaian}</div>
+                                <div className="text-xs text-gray-500">
+                                  {item.tanggal_pemakaian ? formatDate(item.tanggal_pemakaian) : formatDate(item.created_at)}
+                                </div>
+                                <div>
+                                  <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full capitalize ${
+                                    item.tipe_pemakaian === 'operasional' ? 'bg-blue-100 text-blue-800' :
+                                    item.tipe_pemakaian === 'investasi' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {item.tipe_pemakaian}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-left">
+                              <span className="text-lg font-bold text-red-700">
+                                {formatCurrency(item.nominal_total)}
+                              </span>
+                            </td>
+                          </tr>
+                          
+                          {/* Detail Row */}
+                          <tr key={`${index}-detail`} className="bg-gray-50">
+                            <td colSpan="2" className="px-4 py-3">
+                              <div className="space-y-2">
+                                {item.deskripsi && (
+                                  <div className="text-sm text-gray-600">{item.deskripsi}</div>
+                                )}
+                                
+                                {item.keterangan && (
+                                  <div className="text-xs text-gray-500">
+                                    <span className="font-medium">Catatan:</span> {item.keterangan}
+                                  </div>
+                                )}
+                                
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
+                                  <div>
+                                    <div className="text-xs text-orange-600 mb-1 flex items-center">
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                      </svg>
+                                      Dana Syahriah
+                                    </div>
+                                    <div className="text-sm font-medium text-orange-700">
+                                      {formatCurrency(item.nominal_syahriah)}
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <div className="text-xs text-purple-600 mb-1 flex items-center">
+                                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                      </svg>
+                                      Dana Donasi
+                                    </div>
+                                    <div className="text-sm font-medium text-purple-700">
+                                      {formatCurrency(item.nominal_donasi)}
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                  <div className="text-xs text-gray-500">
+                                    Diajukan oleh: {item.pengaju?.nama_lengkap || 'Admin'}
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() => handleOpenEditModal(item)}
+                                      className="text-blue-600 hover:text-blue-900 transition-colors"
+                                      title="Edit"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePemakaian(item.id_pemakaian)}
+                                      className="text-red-600 hover:text-red-900 transition-colors"
+                                      title="Hapus"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        );
 
       case 'pemasukan':
         return (
@@ -1539,112 +2046,223 @@ if (syahriahData.length > 0) {
                 <p className="text-green-600">Data pemasukan donasi akan muncul setelah ada donasi</p>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Donatur</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">No. Telp</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredDonasi.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDateTime(item.waktu_catat)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {item.nama_donatur}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.no_telp || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                        {formatCurrency(item.nominal)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.admin?.nama_lengkap || 'Admin'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-green-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Donatur</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">No. Telp</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Dicatat Oleh</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-green-100">
+                      {filteredDonasi.map((item, index) => (
+                        <tr key={index} className="hover:bg-green-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDateTime(item.waktu_catat)}
+                          </td>
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                            {item.nama_donatur}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.no_telp || '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                            {formatCurrency(item.nominal)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.admin?.nama_lengkap || 'Admin'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                    <thead>
+                      <tr className="bg-green-600">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Donasi</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredDonasi.map((item, index) => (
+                        <>
+                          <tr key={`${index}-main`} className="border-b border-gray-100">
+                            <td className="px-4 py-3">
+                              <div className="space-y-1">
+                                <div className="font-medium text-gray-900">{item.nama_donatur}</div>
+                                <div className="text-xs text-gray-500">
+                                  {formatDateTime(item.waktu_catat)}
+                                </div>
+                                {item.no_telp && (
+                                  <div className="text-xs text-gray-500">
+                                    Telp: {item.no_telp}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-left">
+                              <span className="text-lg font-bold text-green-700">
+                                {formatCurrency(item.nominal)}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr key={`${index}-detail`} className="bg-gray-50">
+                            <td colSpan="2" className="px-4 py-3 text-xs text-gray-500">
+                              Dicatat oleh: {item.admin?.nama_lengkap || 'Admin'}
+                            </td>
+                          </tr>
+                        </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         );
 
-        case 'syahriah':
-          return (
-            <div className="overflow-x-auto">
-              {filteredSyahriah.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
-                  <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+      case 'syahriah':
+        return (
+          <div className="overflow-x-auto">
+            {filteredSyahriah.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Santri</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wali</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bulan</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal Bayar</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dicatat Oleh</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredSyahriah.map((item, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {item.santri?.nama_lengkap || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.santri?.wali?.nama_lengkap || '-'}
-                          {item.santri?.wali?.email && (
-                            <div className="text-xs text-gray-400 mt-1">
-                              {item.santri.wali.email}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatPeriod(item.bulan)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                          {formatCurrency(item.nominal)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {item.admin?.nama_lengkap || 'Admin'}
-                        </td>
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Belum Ada Pemasukan Syahriah</h3>
+                <p className="text-green-600">Data pemasukan syahriah akan muncul setelah ada pembayaran syahriah</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-green-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Santri</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Wali</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Bulan</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Jumlah</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Tanggal Bayar</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase">Dicatat Oleh</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          );   
-              default:
-                return null;
-            }
-          };
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredSyahriah.map((item, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {item.santri?.nama_lengkap || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.santri?.wali?.nama_lengkap || '-'}
+                            {item.santri?.wali?.email && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                {item.santri.wali.email}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatPeriod(item.bulan)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                            {formatCurrency(item.nominal)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.status === 'lunas' ? formatDateTime(item.waktu_catat) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {item.admin?.nama_lengkap || 'Admin'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View */}
+                <div className="md:hidden overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                    <thead>
+                      <tr className="bg-green-600">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Syahriah</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredSyahriah.map((item, index) => (
+                        <>
+                          <tr key={`${index}-main`} className="border-b border-gray-100">
+                            <td className="px-4 py-3">
+                              <div className="space-y-1">
+                                <div className="font-medium text-gray-900">{item.santri?.nama_lengkap || 'N/A'}</div>
+                                <div className="text-xs text-gray-500">
+                                  {formatPeriod(item.bulan)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {item.santri?.wali?.nama_lengkap || 'Wali tidak terdaftar'}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col items-end space-y-2">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                  item.status === 'lunas' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {item.status === 'lunas' ? 'Lunas' : 'Belum Bayar'}
+                                </span>
+                                <span className="text-lg font-bold text-green-700">
+                                  {formatCurrency(item.nominal)}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr key={`${index}-detail`} className="bg-gray-50">
+                            <td colSpan="2" className="px-4 py-3">
+                              <div className="space-y-1 text-xs text-gray-500">
+                                {item.status === 'lunas' && (
+                                  <div>
+                                    Tanggal Bayar: {formatDateTime(item.waktu_catat)}
+                                  </div>
+                                )}
+                                <div>
+                                  Dicatat oleh: {item.admin?.nama_lengkap || 'Admin'}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        );   
+      
+      default:
+        return null;
+    }
+  };
 
   return (
     <AuthDashboardLayout title="Data Keuangan - Admin">
@@ -1737,23 +2355,42 @@ if (syahriahData.length > 0) {
           <h2 className="text-xl font-bold text-gray-800 mb-4 lg:mb-0">Manajemen Keuangan</h2>
           
           <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-3">
-            {/* Period Filter */}
+            {/* Filter Tahun */}
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Periode:</label>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              >
-                <option value="semua">Semua Periode</option>
-                {availablePeriods.map(period => (
-                  <option key={period} value={period}>
-                    {formatPeriod(period)}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <label className="text-sm font-medium text-green-700">Tahun:</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-3 py-1 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="semua">Semua Tahun</option>
+                  {availableYears.map(year => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
+              {/* Filter Bulan */}
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-green-700">Bulan:</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-1 border border-green-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="semua">Semua Bulan</option>
+                  {availableMonths.map(month => {
+                    const monthObj = months.find(m => m.value === month);
+                    return (
+                      <option key={month} value={month}>
+                        {monthObj ? monthObj.label : month}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
             {/* Export Buttons */}
 <div className="flex space-x-2">
   <button
@@ -1820,21 +2457,6 @@ if (syahriahData.length > 0) {
                 {icons.plus}
                 <span className="ml-2">Pengeluaran</span>
               </button>
-              <Link 
-                to="/admin/donasi"
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center"
-              >
-                {icons.plus}
-                <span className="ml-2">Donasi</span>
-              </Link>
-              <Link 
-                to="/admin/syahriah"
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center"
-              >
-                {icons.plus}
-                <span className="ml-2">Syahriah</span>
-              </Link>
-              
             </div>
           </div>
         </div>

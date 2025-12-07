@@ -1643,12 +1643,12 @@ const DataKeuangan = () => {
                       {/* Syahriah Sub-headers */}
                       <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">Pemasukan</th>
                       <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50">Pengeluaran</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">Saldo</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-orange-600 uppercase bg-orange-50 border-x border-orange-100">Saldo Tersisa</th>
                       
                       {/* Donasi Sub-headers */}
                       <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50">Pemasukan</th>
                       <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50">Pengeluaran</th>
-                      <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50 border-x border-purple-100">Saldo</th>
+                      <th className="px-6 py-2 text-left text-xs font-medium text-purple-600 uppercase bg-purple-50 border-x border-purple-100">Saldo Tersisa</th>
                       
                       {/* Ringkasan Sub-headers */}
                       <th className="px-6 py-2 text-left text-xs font-medium text-green-600 uppercase bg-green-50">Pemasukan</th>
@@ -2371,9 +2371,9 @@ const DataKeuangan = () => {
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-orange-600">Saldo Syahriah</p>
+              <p className="text-sm font-medium text-orange-600">Pemasukan Syahriah</p>
               <p className="text-2xl font-bold text-orange-900">
-                {formatCurrencyShort(summaryData?.saldoSyahriah || 0, 1000000000)}
+                {formatCurrencyShort(summaryData?.totalSyahriah || 0, 1000000000)}
               </p>
               <p className="text-xs text-orange-500 mt-1">{getCurrentPeriodText()}</p>
             </div>
@@ -2387,9 +2387,9 @@ const DataKeuangan = () => {
               <span className="text-white">{icons.money}</span>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-purple-600">Saldo Donasi</p>
+              <p className="text-sm font-medium text-purple-600">Pemasukan Donasi</p>
               <p className="text-2xl font-bold text-purple-900">
-                {formatCurrencyShort(summaryData?.saldoDonasi || 0, 1000000000)}
+                {formatCurrencyShort(summaryData?.totalDonasi || 0, 1000000000)}
               </p>
               <p className="text-xs text-purple-500 mt-1">{getCurrentPeriodText()}</p>
             </div>

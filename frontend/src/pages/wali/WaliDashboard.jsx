@@ -356,7 +356,7 @@ const DashboardWali = () => {
         <div className="px-6 py-4 border-b border-green-200">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-green-900">
-              {selectedSantriData ? `Syahriah ${selectedSantriData.santri.nama_lengkap}` : 'Syahriah Santri'}
+              {selectedSantriData ? `${selectedSantriData.santri.nama_lengkap}` : 'Syahriah Santri'}
             </h2>
             
           </div>

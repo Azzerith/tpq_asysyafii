@@ -119,12 +119,13 @@ const UserManagement = () => {
   };
 
   // Fetch data santri untuk setiap user (wali)
+// Fetch data santri untuk setiap user (wali) - PARALEL
 const fetchSantriForUsers = async (users) => {
   try {
     const waliUsers = users.filter(user => user.role === 'wali');
     const santriMap = {};
     
-    console.log('Fetching santri for wali users:', waliUsers.map(u => ({ id: u.id, name: u.nama })));
+    console.log(`Fetching santri untuk ${waliUsers.length} wali users`);
     
     // Cek role current user
     if (!currentUser || (currentUser.role !== 'super_admin' && currentUser.role !== 'admin')) {
@@ -132,25 +133,23 @@ const fetchSantriForUsers = async (users) => {
       return;
     }
     
-    // Untuk setiap wali, fetch data santrinya menggunakan endpoint baru
-    for (const user of waliUsers) {
+    // Gunakan Promise.all untuk fetch paralel
+    const santriPromises = waliUsers.map(async (user) => {
       try {
         // Gunakan endpoint baru untuk super admin
         const endpoint = `/api/super-admin/santri/by-wali/${user.id}`;
-        console.log(`Fetching santri for user ${user.id} from endpoint: ${endpoint}`);
         
         const response = await fetch(`${API_URL}${endpoint}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'
-          }
+          },
+          // Tambahkan timeout
+          signal: AbortSignal.timeout(5000) // 5 detik timeout
         });
 
-        console.log(`Response status for user ${user.id}:`, response.status);
-        
         if (response.ok) {
           const data = await response.json();
-          console.log(`Response data for user ${user.id}:`, data);
           
           // Handle response format
           let santriList = [];
@@ -166,29 +165,37 @@ const fetchSantriForUsers = async (users) => {
             santriList = data.santri;
           }
           
-          console.log(`Parsed santri list for user ${user.id}:`, santriList.length, 'items');
-          
-          santriMap[user.id] = santriList.map(santri => ({
-            id: santri.id_santri || santri.id || santri.IDSantri,
-            nama: santri.nama_lengkap || santri.nama || santri.NamaLengkap,
-            status: santri.status || santri.Status || 'aktif',
-            jenisKelamin: santri.jenis_kelamin || santri.jenisKelamin || santri.JenisKelamin,
-            tanggalMasuk: santri.tanggal_masuk || santri.tanggalMasuk || santri.TanggalMasuk,
-            tempatLahir: santri.tempat_lahir || santri.tempatLahir || santri.TempatLahir,
-            alamat: santri.alamat || santri.Alamat
-          }));
+          return { userId: user.id, santriList };
         } else {
-          const errorText = await response.text();
-          console.warn(`Failed to fetch santri for user ${user.id}:`, response.status, errorText);
-          santriMap[user.id] = [];
+          console.warn(`Failed to fetch santri for user ${user.id}:`, response.status);
+          return { userId: user.id, santriList: [] };
         }
       } catch (err) {
         console.error(`Error fetching santri for user ${user.id}:`, err);
-        santriMap[user.id] = [];
+        return { userId: user.id, santriList: [] };
       }
-    }
+    });
+
+    // Tunggu SEMUA promise selesai secara paralel
+    const results = await Promise.allSettled(santriPromises);
     
-    console.log('Final santri data:', santriMap);
+    // Process results
+    results.forEach(result => {
+      if (result.status === 'fulfilled') {
+        const { userId, santriList } = result.value;
+        santriMap[userId] = santriList.map(santri => ({
+          id: santri.id_santri || santri.id || santri.IDSantri,
+          nama: santri.nama_lengkap || santri.nama || santri.NamaLengkap,
+          status: santri.status || santri.Status || 'aktif',
+          jenisKelamin: santri.jenis_kelamin || santri.jenisKelamin || santri.JenisKelamin,
+          tanggalMasuk: santri.tanggal_masuk || santri.tanggalMasuk || santri.TanggalMasuk,
+          tempatLahir: santri.tempat_lahir || santri.tempatLahir || santri.TempatLahir,
+          alamat: santri.alamat || santri.Alamat
+        }));
+      }
+    });
+    
+    console.log('Final santri data loaded:', santriMap);
     setSantriData(santriMap);
   } catch (err) {
     console.error('Error in fetchSantriForUsers:', err);

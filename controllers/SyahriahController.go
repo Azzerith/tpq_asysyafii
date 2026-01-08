@@ -116,7 +116,7 @@ func (ctrl *SyahriahController) CreateSyahriah(c *gin.Context) {
 
 	// Set default nominal jika tidak diisi
 	if req.Nominal == 0 {
-		req.Nominal = 110000 // default value
+		req.Nominal = 10000 // default value
 	}
 
 	// Validasi status

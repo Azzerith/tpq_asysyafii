@@ -23,6 +23,7 @@ const DataSyahriah = () => {
     belum_lunas: 0
   });
   const [santriData, setSantriData] = useState([]);
+  const [loadingPagination, setLoadingPagination] = useState(false);
   
   // State untuk modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -50,6 +51,13 @@ const DataSyahriah = () => {
     status: 'belum'
   });
 
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    total_pages: 0
+  });
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
   // Fetch semua data
@@ -63,27 +71,39 @@ const DataSyahriah = () => {
     calculateFilteredSummary();
   }, [pembayaranData, filterNama, filterBulanTahun]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (page = 1, limit = 10) => {
     try {
       setLoading(true);
       setError('');
       
-      // Fetch data syahriah
-      const syahriahResponse = await fetch(`${API_URL}/api/admin/syahriah`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
+      // Tambahkan query parameters untuk pagination
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
       });
-
+  
+      // Fetch data syahriah dengan pagination
+      const syahriahResponse = await fetch(
+        `${API_URL}/api/admin/syahriah?${queryParams.toString()}`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+  
       if (!syahriahResponse.ok) {
         throw new Error(`HTTP error! status: ${syahriahResponse.status}`);
       }
-
-      const syahriahData = await syahriahResponse.json();
+  
+      const responseData = await syahriahResponse.json();
+      
+      // Update state data syahriah
+      const syahriahData = responseData.data || [];
       
       // Urutkan data: belum lunas di atas, lalu lunas, dan urut berdasarkan bulan terbaru
-      const sortedData = (syahriahData.data || []).sort((a, b) => {
+      const sortedData = syahriahData.sort((a, b) => {
         // Prioritas status belum lunas
         if (a.status === 'belum' && b.status === 'lunas') return -1;
         if (a.status === 'lunas' && b.status === 'belum') return 1;
@@ -93,12 +113,29 @@ const DataSyahriah = () => {
       });
       
       setPembayaranData(sortedData);
+      
+      // Update pagination info dari response
+      if (responseData.meta) {
+        setPagination({
+          page: responseData.meta.page,
+          limit: responseData.meta.limit,
+          total: responseData.meta.total,
+          total_pages: responseData.meta.total_page
+        });
+      }
+      
       calculateSummary(sortedData);
-
+  
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(`Gagal memuat data: ${err.message}`);
       setPembayaranData([]);
+      setPagination({
+        page: 1,
+        limit: 10,
+        total: 0,
+        total_pages: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -174,34 +211,43 @@ const DataSyahriah = () => {
         setError('Token tidak ditemukan');
         return;
       }
-
-      const response = await fetch(`${API_URL}/api/admin/santri`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+  
+      // Tambahkan parameter limit besar untuk mendapatkan semua data
+      const response = await fetch(
+        `${API_URL}/api/admin/santri?limit=1000`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
-      });
-
+      );
+  
       console.log('📡 Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+  
       const data = await response.json();
       console.log('Santri data received:', data);
       
+      // Handle response dengan pagination atau tanpa pagination
       if (Array.isArray(data)) {
         setSantriData(data);
         console.log(`Loaded ${data.length} santri records`);
       } else if (data.data && Array.isArray(data.data)) {
         setSantriData(data.data);
         console.log(`Loaded ${data.data.length} santri records`);
+      } else if (data.data && Array.isArray(data.data.data)) {
+        // Jika ada nested pagination structure
+        setSantriData(data.data.data);
+        console.log(`Loaded ${data.data.data.length} santri records`);
       } else {
-        console.error('Expected array but got:', typeof data, data);
+        console.error('Unexpected data structure:', typeof data, data);
         setSantriData([]);
       }
-
+  
     } catch (err) {
       console.error('Error fetching santri data:', err);
       setError('Gagal memuat data santri: ' + err.message);
@@ -234,6 +280,18 @@ const DataSyahriah = () => {
     setShowAlertModal(true);
   };
 
+  const handlePageChange = async (newPage) => {
+    if (newPage >= 1 && newPage <= pagination.total_pages && !loadingPagination) {
+      setLoadingPagination(true);
+      await fetchAllData(newPage, pagination.limit);
+      setLoadingPagination(false);
+    }
+  };
+
+  const handleLimitChange = (newLimit) => {
+    fetchAllData(1, newLimit);
+  };
+
   // Handle pembayaran
   const handleBayarSyahriah = async (idSyahriah, syahriahData) => {
     try {
@@ -262,7 +320,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData();
+      await fetchAllData(pagination.page, pagination.limit);
       showAlert('Berhasil', `Pembayaran syahriah untuk ${syahriahData.santri?.nama_lengkap || 'santri'} berhasil`, 'success');
     } catch (err) {
       console.error('Error paying syahriah:', err);
@@ -764,7 +822,7 @@ const DataSyahriah = () => {
             }
 
             const result = await response.json();
-            await fetchAllData();
+            await fetchAllData(pagination.page, pagination.limit);
             showAlert('Berhasil', result.message || `Berhasil membuat data syahriah untuk ${result.data?.created || santriData.length} santri`, 'success');
           } catch (err) {
             console.error('Error creating batch syahriah:', err);
@@ -806,7 +864,7 @@ const DataSyahriah = () => {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      await fetchAllData();
+      await fetchAllData(pagination.page, pagination.limit);
       setShowCreateModal(false);
       resetForm();
       showAlert('Berhasil', 'Data syahriah berhasil dibuat', 'success');
@@ -850,7 +908,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData();
+      await fetchAllData(pagination.page, pagination.limit);
       setShowEditModal(false);
       resetForm();
       setSelectedSyahriah(null);
@@ -890,7 +948,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData();
+      await fetchAllData(pagination.page, pagination.limit);
       setShowDeleteModal(false);
       setSelectedSyahriah(null);
       showAlert('Berhasil', 'Data syahriah berhasil dihapus', 'success');
@@ -1187,6 +1245,69 @@ const DataSyahriah = () => {
             Tidak ada data {activeTab === 'tunggakan' ? 'tunggakan' : 'pembayaran'}
           </div>
         )}
+        {
+  dataToShow.length > 0 && (
+    <div className="flex justify-between items-center mt-6">
+      <div className="text-sm text-gray-600">
+        Menampilkan {((pagination.page - 1) * pagination.limit) + 1} - 
+        {Math.min(pagination.page * pagination.limit, pagination.total)} dari {pagination.total} data
+      </div>
+      
+      <div className="flex items-center space-x-4">
+        {/* Limit selector */}
+        <select
+          value={pagination.limit}
+          onChange={(e) => handleLimitChange(parseInt(e.target.value))}
+          className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
+        >
+          <option value="10">10 per halaman</option>
+          <option value="25">25 per halaman</option>
+          <option value="50">50 per halaman</option>
+          <option value="100">100 per halaman</option>
+        </select>
+        
+        {/* Pagination buttons */}
+        <div className="flex space-x-2">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={pagination.page === 1}
+            className={`px-3 py-1 rounded-lg ${pagination.page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            &laquo;
+          </button>
+          
+          <button
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className={`px-3 py-1 rounded-lg ${pagination.page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            &lsaquo;
+          </button>
+          
+          <span className="px-3 py-1 text-gray-700">
+            Halaman {pagination.page} dari {pagination.total_pages}
+          </span>
+          
+          <button
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page === pagination.total_pages}
+            className={`px-3 py-1 rounded-lg ${pagination.page === pagination.total_pages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            &rsaquo;
+          </button>
+          
+          <button
+            onClick={() => handlePageChange(pagination.total_pages)}
+            disabled={pagination.page === pagination.total_pages}
+            className={`px-3 py-1 rounded-lg ${pagination.page === pagination.total_pages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            &raquo;
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
       </div>
     );
   };

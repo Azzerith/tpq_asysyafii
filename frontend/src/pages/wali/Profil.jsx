@@ -315,12 +315,12 @@ const Profil = () => {
                       <p className="text-gray-900">{user?.no_telp || 'Belum diatur'}</p>
                     </div>
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">ID User</label>
                     <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                       <p className="text-gray-900 font-mono">{user?.id_user || '-'}</p>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
 
                 <div>

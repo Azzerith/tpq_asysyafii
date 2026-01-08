@@ -21,6 +21,9 @@ const UserManagement = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState(10);
+const [totalItems, setTotalItems] = useState(0);
 
   const [santriData, setSantriData] = useState({});
 
@@ -119,7 +122,6 @@ const UserManagement = () => {
   };
 
   // Fetch data santri untuk setiap user (wali)
-// Fetch data santri untuk setiap user (wali) - PARALEL
 const fetchSantriForUsers = async (users) => {
   try {
     const waliUsers = users.filter(user => user.role === 'wali');
@@ -200,6 +202,104 @@ const fetchSantriForUsers = async (users) => {
   } catch (err) {
     console.error('Error in fetchSantriForUsers:', err);
   }
+};
+
+// Fungsi untuk menghitung pagination
+const calculatePagination = () => {
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  
+  const paginatedUsersByRole = {
+    wali: usersByRole.wali.slice(startIndex, endIndex),
+    admin: usersByRole.admin.slice(startIndex, endIndex),
+    super_admin: usersByRole.super_admin.slice(startIndex, endIndex)
+  };
+  
+  return {
+    paginatedUsersByRole,
+    totalPages: Math.ceil(usersByRole.wali.length / itemsPerPage)
+  };
+};
+
+// Fungsi untuk mengubah halaman
+const handlePageChange = (page) => {
+  setCurrentPage(page);
+};
+
+// Fungsi untuk mengubah items per page
+const handleItemsPerPageChange = (value) => {
+  setItemsPerPage(Number(value));
+  setCurrentPage(1); // Reset ke halaman pertama
+};
+
+// Komponen Pagination
+const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+  const maxVisiblePages = 5;
+  
+  const renderPageNumbers = () => {
+    const pages = [];
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => onPageChange(i)}
+          className={`px-3 py-1 rounded-lg transition-colors ${
+            currentPage === i
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    
+    return pages;
+  };
+  
+  if (totalPages <= 1) return null;
+  
+  return (
+    <div className="flex items-center justify-between mt-4">
+      <div className="text-sm text-gray-600">
+        Halaman {currentPage} dari {totalPages}
+      </div>
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Sebelumnya
+        </button>
+        
+        <div className="flex space-x-1">
+          {renderPageNumbers()}
+        </div>
+        
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+        >
+          Selanjutnya
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
 };
 
   // Check if current user has permission to access this page
@@ -1180,6 +1280,10 @@ const fetchSantriForUsers = async (users) => {
                 <div key={i} className="h-20 bg-gray-200 rounded-lg"></div>
               ))}
             </div>
+            <div className="flex justify-between items-center">
+            <div className="h-8 bg-gray-200 rounded w-64"></div>
+            <div className="h-8 bg-gray-200 rounded w-32"></div>
+          </div>
           </div>
         </div>
       </AuthDashboardLayout>
@@ -1204,12 +1308,11 @@ const fetchSantriForUsers = async (users) => {
     );
   }
 
+  const { paginatedUsersByRole, totalPages } = calculatePagination();
+
   return (
     <AuthDashboardLayout title={'Manajemen User'}>
       <div className="p-6">
-
-        
-
         {/* Filter dan Search Section */}
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -1231,6 +1334,16 @@ const fetchSantriForUsers = async (users) => {
               <option value="Aktif">Aktif</option>
               <option value="Nonaktif">Nonaktif</option>
             </select>
+            <select
+    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    value={itemsPerPage}
+    onChange={(e) => handleItemsPerPageChange(e.target.value)}
+  >
+    <option value="5">5 per halaman</option>
+    <option value="10">10 per halaman</option>
+    <option value="20">20 per halaman</option>
+    <option value="50">50 per halaman</option>
+  </select>
             <button 
             onClick={openCreateModal}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
@@ -1248,18 +1361,22 @@ const fetchSantriForUsers = async (users) => {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Tabel Wali - Lebih Luas */}
           <div className="xl:col-span-2">
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-    <div className="flex items-center justify-between">
-      <h2 className="text-lg font-semibold text-gray-900">
-        Data Wali Santri
-      </h2>
-      <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
-        {usersByRole.wali.length} User
-      </span>
+  <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Data Wali Santri
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Menampilkan {Math.min(itemsPerPage, paginatedUsersByRole.wali.length)} dari {usersByRole.wali.length} wali
+          </p>
+        </div>
+        <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
+          {usersByRole.wali.length} User
+        </span>
+      </div>
     </div>
-  </div>
-  
   <div className="overflow-x-auto">
     <table className="min-w-full divide-y divide-gray-200">
       <thead className="bg-gray-50">
@@ -1282,34 +1399,43 @@ const fetchSantriForUsers = async (users) => {
         </tr>
       </thead>
       <tbody className="bg-white divide-y divide-gray-200">
-                    {usersByRole.wali.length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                          </svg>
-                          <p className="mt-2">Tidak ada data wali</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      usersByRole.wali.map((user) => (
-                        <UserTableRow 
-                          key={user.id} 
-                          user={user} 
-                          onEdit={openEditModal}
-                          onView={openViewModal}
-                          onDelete={openDeleteModal}
-                          onToggleStatus={openStatusModal}
-                          isCurrentUser={isCurrentUser(user.id)}
-                          hasPermission={hasPermission}
-                          currentUser={currentUser}
-                          santriData={santriData}
-                        />
-                      ))
-                    )}
-                  </tbody>
+          {paginatedUsersByRole.wali.length === 0 ? (
+            <tr>
+              <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                </svg>
+                <p className="mt-2">Tidak ada data wali</p>
+              </td>
+            </tr>
+          ) : (
+            paginatedUsersByRole.wali.map((user) => (
+              <UserTableRow 
+                key={user.id} 
+                user={user} 
+                onEdit={openEditModal}
+                onView={openViewModal}
+                onDelete={openDeleteModal}
+                onToggleStatus={openStatusModal}
+                isCurrentUser={isCurrentUser(user.id)}
+                hasPermission={hasPermission}
+                currentUser={currentUser}
+                santriData={santriData}
+              />
+            ))
+          )}
+        </tbody>
                 </table>
               </div>
+              {usersByRole.wali.length > itemsPerPage && (
+      <div className="px-6 py-4 border-t border-gray-200">
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+        />
+      </div>
+    )}
             </div>
           </div>
 

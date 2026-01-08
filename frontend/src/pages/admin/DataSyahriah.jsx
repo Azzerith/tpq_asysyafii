@@ -46,7 +46,7 @@ const DataSyahriah = () => {
   const [formData, setFormData] = useState({
     id_santri: '',
     bulan: getCurrentMonth(),
-    nominal: 110000,
+    nominal: 10000,
     status: 'belum'
   });
 
@@ -745,7 +745,7 @@ const DataSyahriah = () => {
               },
               body: JSON.stringify({
                 bulan: getCurrentMonth(),
-                nominal: 110000,
+                nominal: 10000,
                 status: 'belum'
               })
             });
@@ -907,7 +907,7 @@ const DataSyahriah = () => {
     setFormData({
       id_santri: '',
       bulan: getCurrentMonth(),
-      nominal: 110000,
+      nominal: 10000,
       status: 'belum'
     });
   };

@@ -760,7 +760,7 @@ const getOptimizedLogoUrl = (url, width = 400) => {
               <svg className="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-sm text-gray-600">Gambar siap diupload ke Cloudinary</p>
+              <p className="text-sm text-gray-600">Ubah Logo TPQ</p>
               <p className="text-xs text-gray-500">Klik untuk mengganti</p>
             </>
           )}
@@ -770,7 +770,7 @@ const getOptimizedLogoUrl = (url, width = 400) => {
           {isUploadingLogo ? (
             <>
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-              <p className="text-sm text-gray-600">Uploading to Cloudinary...</p>
+              <p className="text-sm text-gray-600">Uploading...</p>
               <p className="text-xs text-gray-500">{uploadProgress}%</p>
             </>
           ) : (
@@ -779,7 +779,7 @@ const getOptimizedLogoUrl = (url, width = 400) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <p className="text-sm text-gray-500">
-                <span className="font-semibold">Klik untuk upload ke Cloudinary</span>
+                <span className="font-semibold">Klik untuk tambah Logo TPQ</span>
               </p>
               <p className="text-xs text-gray-400">PNG, JPG, GIF, WebP up to 10MB</p>
             </>
@@ -795,7 +795,7 @@ const getOptimizedLogoUrl = (url, width = 400) => {
       />
     </label>
     <p className="text-xs text-gray-500 mt-2 text-center">
-      Format: JPG, PNG, GIF, WebP. Maksimal 10MB. Gambar akan diupload ke Cloudinary.
+      Format: JPG, PNG, GIF, WebP. Maksimal 10MB.
     </p>
   </div>
 )}

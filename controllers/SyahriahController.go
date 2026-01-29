@@ -168,18 +168,10 @@ func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 	}
 
 	// Parse query parameters
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
 	bulan := c.Query("bulan")
 	status := c.Query("status")
 	idSantri := c.Query("id_santri") // untuk filter oleh admin
-
-	if page < 1 {
-		page = 1
-	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
 
 	var syahriah []models.Syahriah
 	var total int64
@@ -210,10 +202,7 @@ func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 	}
 
 	// Apply pagination
-	offset := (page - 1) * limit
 	err := query.Order("bulan DESC, waktu_catat DESC").
-		Offset(offset).
-		Limit(limit).
 		Find(&syahriah).Error
 
 	if err != nil {
@@ -223,12 +212,6 @@ func (ctrl *SyahriahController) GetAllSyahriah(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"data": syahriah,
-		"meta": gin.H{
-			"page":      page,
-			"limit":     limit,
-			"total":     total,
-			"total_page": (int(total) + limit - 1) / limit,
-		},
 	})
 }
 

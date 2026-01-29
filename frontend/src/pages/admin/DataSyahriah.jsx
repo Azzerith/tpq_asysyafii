@@ -23,7 +23,6 @@ const DataSyahriah = () => {
     belum_lunas: 0
   });
   const [santriData, setSantriData] = useState([]);
-  const [loadingPagination, setLoadingPagination] = useState(false);
   
   // State untuk modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -51,13 +50,6 @@ const DataSyahriah = () => {
     status: 'belum'
   });
 
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    total_pages: 0
-  });
-
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
   // Fetch semua data
@@ -71,20 +63,14 @@ const DataSyahriah = () => {
     calculateFilteredSummary();
   }, [pembayaranData, filterNama, filterBulanTahun]);
 
-  const fetchAllData = async (page = 1, limit = 10) => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
       setError('');
-      
-      // Tambahkan query parameters untuk pagination
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString()
-      });
   
-      // Fetch data syahriah dengan pagination
+      // Fetch data syahriah
       const syahriahResponse = await fetch(
-        `${API_URL}/api/admin/syahriah?${queryParams.toString()}`, 
+        `${API_URL}/api/admin/syahriah`, 
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -114,28 +100,12 @@ const DataSyahriah = () => {
       
       setPembayaranData(sortedData);
       
-      // Update pagination info dari response
-      if (responseData.meta) {
-        setPagination({
-          page: responseData.meta.page,
-          limit: responseData.meta.limit,
-          total: responseData.meta.total,
-          total_pages: responseData.meta.total_page
-        });
-      }
-      
       calculateSummary(sortedData);
   
     } catch (err) {
       console.error('Error fetching data:', err);
       setError(`Gagal memuat data: ${err.message}`);
       setPembayaranData([]);
-      setPagination({
-        page: 1,
-        limit: 10,
-        total: 0,
-        total_pages: 0
-      });
     } finally {
       setLoading(false);
     }
@@ -232,7 +202,7 @@ const DataSyahriah = () => {
       const data = await response.json();
       console.log('Santri data received:', data);
       
-      // Handle response dengan pagination atau tanpa pagination
+      // Handle response 
       if (Array.isArray(data)) {
         setSantriData(data);
         console.log(`Loaded ${data.length} santri records`);
@@ -240,7 +210,6 @@ const DataSyahriah = () => {
         setSantriData(data.data);
         console.log(`Loaded ${data.data.length} santri records`);
       } else if (data.data && Array.isArray(data.data.data)) {
-        // Jika ada nested pagination structure
         setSantriData(data.data.data);
         console.log(`Loaded ${data.data.data.length} santri records`);
       } else {
@@ -280,14 +249,6 @@ const DataSyahriah = () => {
     setShowAlertModal(true);
   };
 
-  const handlePageChange = async (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.total_pages && !loadingPagination) {
-      setLoadingPagination(true);
-      await fetchAllData(newPage, pagination.limit);
-      setLoadingPagination(false);
-    }
-  };
-
   const handleLimitChange = (newLimit) => {
     fetchAllData(1, newLimit);
   };
@@ -320,7 +281,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData(pagination.page, pagination.limit);
+      await fetchAllData();
       showAlert('Berhasil', `Pembayaran syahriah untuk ${syahriahData.santri?.nama_lengkap || 'santri'} berhasil`, 'success');
     } catch (err) {
       console.error('Error paying syahriah:', err);
@@ -530,10 +491,6 @@ const DataSyahriah = () => {
             <meta charset="utf-8">
             <title>Laporan Syahriah - ${tpqInfo?.nama_tpq || 'TPQ Asy-Syafi\'i'}</title>
             <style>
-              @page {
-                margin: 2cm;
-                size: A4;
-              }
               body { 
                 font-family: 'Times New Roman', Times, serif; 
                 margin: 0;
@@ -822,7 +779,7 @@ const DataSyahriah = () => {
             }
 
             const result = await response.json();
-            await fetchAllData(pagination.page, pagination.limit);
+            await fetchAllData();
             showAlert('Berhasil', result.message || `Berhasil membuat data syahriah untuk ${result.data?.created || santriData.length} santri`, 'success');
           } catch (err) {
             console.error('Error creating batch syahriah:', err);
@@ -864,7 +821,7 @@ const DataSyahriah = () => {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      await fetchAllData(pagination.page, pagination.limit);
+      await fetchAllData();
       setShowCreateModal(false);
       resetForm();
       showAlert('Berhasil', 'Data syahriah berhasil dibuat', 'success');
@@ -908,7 +865,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData(pagination.page, pagination.limit);
+      await fetchAllData();
       setShowEditModal(false);
       resetForm();
       setSelectedSyahriah(null);
@@ -948,7 +905,7 @@ const DataSyahriah = () => {
         throw new Error(errorMessage);
       }
 
-      await fetchAllData(pagination.page, pagination.limit);
+      await fetchAllData();
       setShowDeleteModal(false);
       setSelectedSyahriah(null);
       showAlert('Berhasil', 'Data syahriah berhasil dihapus', 'success');
@@ -1245,69 +1202,6 @@ const DataSyahriah = () => {
             Tidak ada data {activeTab === 'tunggakan' ? 'tunggakan' : 'pembayaran'}
           </div>
         )}
-        {
-  dataToShow.length > 0 && (
-    <div className="flex justify-between items-center mt-6">
-      <div className="text-sm text-gray-600">
-        Menampilkan {((pagination.page - 1) * pagination.limit) + 1} - 
-        {Math.min(pagination.page * pagination.limit, pagination.total)} dari {pagination.total} data
-      </div>
-      
-      <div className="flex items-center space-x-4">
-        {/* Limit selector */}
-        <select
-          value={pagination.limit}
-          onChange={(e) => handleLimitChange(parseInt(e.target.value))}
-          className="px-3 py-1 border border-gray-300 rounded-lg text-sm"
-        >
-          <option value="10">10 per halaman</option>
-          <option value="25">25 per halaman</option>
-          <option value="50">50 per halaman</option>
-          <option value="100">100 per halaman</option>
-        </select>
-        
-        {/* Pagination buttons */}
-        <div className="flex space-x-2">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={pagination.page === 1}
-            className={`px-3 py-1 rounded-lg ${pagination.page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            &laquo;
-          </button>
-          
-          <button
-            onClick={() => handlePageChange(pagination.page - 1)}
-            disabled={pagination.page === 1}
-            className={`px-3 py-1 rounded-lg ${pagination.page === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            &lsaquo;
-          </button>
-          
-          <span className="px-3 py-1 text-gray-700">
-            Halaman {pagination.page} dari {pagination.total_pages}
-          </span>
-          
-          <button
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page === pagination.total_pages}
-            className={`px-3 py-1 rounded-lg ${pagination.page === pagination.total_pages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            &rsaquo;
-          </button>
-          
-          <button
-            onClick={() => handlePageChange(pagination.total_pages)}
-            disabled={pagination.page === pagination.total_pages}
-            className={`px-3 py-1 rounded-lg ${pagination.page === pagination.total_pages ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            &raquo;
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
       </div>
     );
   };

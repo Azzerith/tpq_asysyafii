@@ -13,6 +13,11 @@ const DataSantri = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [jenisKelaminFilter, setJenisKelaminFilter] = useState('all');
 
+  // State untuk pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
   // State untuk modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -123,6 +128,8 @@ const DataSantri = () => {
         diperbaruiPada: santri.diperbarui_pada
       })));
 
+      setTotalItems(transformedSantri.length);
+
     } catch (err) {
       console.error('Error fetching santri:', err);
       setError(`Gagal memuat data santri: ${err.message}`);
@@ -167,6 +174,116 @@ const DataSantri = () => {
       fetchWaliOptions();
     }
   }, [currentUser]);
+
+  // Filter santri
+  const filteredSantri = santri.filter(item => {
+    const matchesSearch = item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (item.wali?.nama && item.wali.nama.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+    const matchesJenisKelamin = jenisKelaminFilter === 'all' || item.jenisKelamin === jenisKelaminFilter;
+    
+    return matchesSearch && matchesStatus && matchesJenisKelamin;
+  });
+
+  // Hitung total halaman
+  const totalPages = Math.ceil(filteredSantri.length / itemsPerPage);
+  
+  // Dapatkan santri untuk halaman saat ini
+  const paginatedSantri = filteredSantri.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Fungsi untuk mengubah halaman
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Fungsi untuk mengubah items per page
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Reset ke halaman pertama
+  };
+
+  // Komponen Pagination
+  const Pagination = ({ currentPage, totalPages, onPageChange }) => {
+    const maxVisiblePages = 5;
+    
+    const renderPageNumbers = () => {
+      const pages = [];
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(
+          <button
+            key={i}
+            onClick={() => onPageChange(i)}
+            className={`px-3 py-1 rounded-lg transition-colors ${
+              currentPage === i
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            {i}
+          </button>
+        );
+      }
+      
+      return pages;
+    };
+    
+    if (totalPages <= 1) return null;
+    
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">
+          Halaman {currentPage} dari {totalPages}
+        </div>
+        <div className="flex items-center space-x-2">
+          <select
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={itemsPerPage}
+            onChange={(e) => handleItemsPerPageChange(e.target.value)}
+          >
+            <option value="5">5 per halaman</option>
+            <option value="10">10 per halaman</option>
+            <option value="20">20 per halaman</option>
+            <option value="50">50 per halaman</option>
+          </select>
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Sebelumnya
+          </button>
+          
+          <div className="flex space-x-1">
+            {renderPageNumbers()}
+          </div>
+          
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+          >
+            Selanjutnya
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Modal handlers
   const openDeleteModal = (santri) => {
@@ -557,16 +674,6 @@ const DataSantri = () => {
     }
   };
 
-  // Filter santri
-  const filteredSantri = santri.filter(item => {
-    const matchesSearch = item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.wali?.nama && item.wali.nama.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchesJenisKelamin = jenisKelaminFilter === 'all' || item.jenisKelamin === jenisKelaminFilter;
-    
-    return matchesSearch && matchesStatus && matchesJenisKelamin;
-  });
-
   // Group santri by status untuk statistik
   const santriByStatus = {
     aktif: santri.filter(item => item.status === 'aktif'),
@@ -575,9 +682,14 @@ const DataSantri = () => {
     berhenti: santri.filter(item => item.status === 'berhenti')
   };
 
+  // Reset halaman saat filter berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, jenisKelaminFilter]);
+
   if (loading) {
     return (
-      <AuthDashboardLayout>
+      <AuthDashboardLayout title="Data Santri">
         <div className="p-0">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
@@ -621,7 +733,6 @@ const DataSantri = () => {
 
         {/* Statistik */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-
           <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
@@ -679,8 +790,8 @@ const DataSantri = () => {
         </div>
 
         {/* Filter dan Search Section */}
-        <div className="bg-white p-4 rounded-lg shadow-md mb-2">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="md:col-span-2">
               <input
                 type="text"
@@ -710,19 +821,16 @@ const DataSantri = () => {
               <option value="L">Laki-laki</option>
               <option value="P">Perempuan</option>
             </select>
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-          {hasPermission('create_santri') && (
             <button 
               onClick={openCreateModal}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              disabled={!hasPermission('create_santri')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Tambah Santri
             </button>
-          )}
-        </div>
           </div>
         </div>
 
@@ -730,9 +838,14 @@ const DataSantri = () => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Daftar Santri
-              </h2>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Daftar Santri
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Menampilkan {Math.min(itemsPerPage, paginatedSantri.length)} dari {filteredSantri.length} santri
+                </p>
+              </div>
               <span className="bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full">
                 {filteredSantri.length} Santri
               </span>
@@ -764,7 +877,7 @@ const DataSantri = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSantri.length === 0 ? (
+                {paginatedSantri.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -774,7 +887,7 @@ const DataSantri = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredSantri.map((santri) => (
+                  paginatedSantri.map((santri) => (
                     <SantriTableRow 
                       key={santri.id} 
                       santri={santri} 
@@ -793,6 +906,17 @@ const DataSantri = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {filteredSantri.length > itemsPerPage && (
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
         </div>
 
         {/* Link ke halaman lain */}

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalDonasi: 0,
     totalSyahriah: 0,
@@ -11,7 +12,6 @@ const AdminDashboard = () => {
     totalPengeluaran: 0,
     saldoAkhir: 0
   });
-  const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState({
     pemasukanByMonth: null,
     pengeluaranByMonth: null,
@@ -19,7 +19,28 @@ const AdminDashboard = () => {
     revenueSources: null
   });
 
+  // State untuk filter
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState('semua');
+  const [availableYears, setAvailableYears] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
+
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+  const months = [
+    { value: '01', label: 'Januari' },
+    { value: '02', label: 'Februari' },
+    { value: '03', label: 'Maret' },
+    { value: '04', label: 'April' },
+    { value: '05', label: 'Mei' },
+    { value: '06', label: 'Juni' },
+    { value: '07', label: 'Juli' },
+    { value: '08', label: 'Agustus' },
+    { value: '09', label: 'September' },
+    { value: '10', label: 'Oktober' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'Desember' },
+  ];
 
   // SVG Icons
   const Icons = {
@@ -65,83 +86,91 @@ const AdminDashboard = () => {
     ),
   };
 
-  // Fetch real data from APIs
-  const fetchStats = async () => {
+  // Fetch data dengan filter yang benar
+  const fetchAllData = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
+      
+      // Build query parameters untuk filter
+      const params = new URLSearchParams();
+      if (selectedYear !== 'semua') {
+        params.append('tahun', selectedYear);
+      }
+      if (selectedMonth !== 'semua') {
+        params.append('bulan', selectedMonth);
+      }
 
-      // Fetch all data in parallel
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+
+      // Fetch semua data secara parallel (sesuai role admin)
       const [
         donasiResponse,
         syahriahResponse,
-        keuanganResponse,
+        rekapResponse,
         pemakaianResponse,
       ] = await Promise.all([
-        fetch(`${API_URL}/api/admin/donasi/summary`, {
+        fetch(`${API_URL}/api/admin/donasi?limit=100${queryString}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${API_URL}/api/admin/syahriah?limit=1000`, {
+        fetch(`${API_URL}/api/admin/syahriah?limit=100${queryString}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${API_URL}/api/admin/rekap/summary`, {
+        fetch(`${API_URL}/api/admin/rekap?limit=100`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${API_URL}/api/admin/pemakaian?limit=1000`, {
+        fetch(`${API_URL}/api/admin/pemakaian?limit=100${queryString}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
       ]);
 
       const donasiData = await donasiResponse.json();
       const syahriahData = await syahriahResponse.json();
-      const keuanganData = await keuanganResponse.json();
+      const rekapData = await rekapResponse.json();
       const pemakaianData = await pemakaianResponse.json();
 
-      console.log('Pemakaian API Response:', pemakaianData); // Debug log
+      // Filter data berdasarkan periode yang dipilih
+      const filteredDonasi = filterDataByPeriod(donasiData.data || [], 'waktu_catat');
+      const filteredSyahriah = filterDataByPeriod(syahriahData.data || [], 'bulan');
+      const filteredPemakaian = filterDataByPeriod(pemakaianData.data || [], 'tanggal_pemakaian');
+      const filteredRekap = filterRekapData(rekapData.data || []);
 
-      const totalDonasi = donasiData.data?.total_nominal || donasiData.total_nominal || 0;
+      // Hitung total dari data yang sudah difilter
+      const totalDonasi = filteredDonasi.reduce((sum, item) => sum + (item.nominal || 0), 0);
+      const totalSyahriah = filteredSyahriah
+        .filter(item => item.status === 'lunas')
+        .reduce((sum, item) => sum + (item.nominal || 0), 0);
+      const totalPengeluaran = filteredPemakaian.reduce((sum, item) => sum + (item.nominal_total || 0), 0);
 
-      let totalSyahriah = 0;
-      if (Array.isArray(syahriahData)) {
-        totalSyahriah = syahriahData
-          .filter(item => item.status === 'lunas') // Hanya yang lunas
-          .reduce((sum, item) => sum + (item.nominal || 0), 0);
-      } else if (Array.isArray(syahriahData.data)) {
-        totalSyahriah = syahriahData.data
-          .filter(item => item.status === 'lunas') // Hanya yang lunas
-          .reduce((sum, item) => sum + (item.nominal || 0), 0);
-      } else if (syahriahData.data?.total_nominal) {
-        totalSyahriah = syahriahData.data.total_nominal;
-      } else if (syahriahData.total_nominal) {
-        totalSyahriah = syahriahData.total_nominal;
-      }
-      
-      const totalPemasukan = keuanganData.data?.total_pemasukan || (totalDonasi + totalSyahriah);
-      
-      // PERBAIKAN: Calculate total pengeluaran dari pemakaian data dengan struktur baru
-      let totalPengeluaran = 0;
-      const pemakaianList = Array.isArray(pemakaianData) ? pemakaianData : pemakaianData.data || [];
-      
-      if (pemakaianList.length > 0) {
-        // Gunakan nominal_total sebagai dasar perhitungan
-        totalPengeluaran = pemakaianList.reduce((sum, item) => {
-          // Prioritaskan nominal_total, fallback ke nominal jika tidak ada
-          return sum + (item.nominal_total || item.nominal || 0);
-        }, 0);
-        
-        console.log('Total Pengeluaran calculated:', totalPengeluaran);
-        console.log('Pemakaian items:', pemakaianList.map(item => ({
-          judul: item.judul_pemakaian,
-          nominal_total: item.nominal_total,
-          nominal_syahriah: item.nominal_syahriah,
-          nominal_donasi: item.nominal_donasi
-        })));
+      // Hitung total pemasukan dan saldo akhir berdasarkan data rekap
+      let totalPemasukan = 0;
+      let saldoAkhir = 0;
+
+      if (filteredRekap.length > 0) {
+        if (selectedMonth === 'semua' && selectedYear === 'semua') {
+          // Untuk "semua periode", jumlahkan semua data
+          totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+          // Ambil saldo terakhir
+          const latestRekap = rekapData.data?.[0] || filteredRekap[0];
+          saldoAkhir = latestRekap?.saldo_akhir_total || 0;
+        } else if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+          // Untuk tahun tertentu (semua bulan)
+          totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+          // Ambil saldo terakhir dari tahun tersebut
+          const latestRekapForYear = filteredRekap[0];
+          saldoAkhir = latestRekapForYear?.saldo_akhir_total || 0;
+        } else if (selectedMonth !== 'semua') {
+          // Untuk bulan tertentu
+          totalPemasukan = filteredRekap.reduce((sum, item) => sum + (item.pemasukan_total || 0), 0);
+          if (filteredRekap.length > 0) {
+            saldoAkhir = filteredRekap[0]?.saldo_akhir_total || 0;
+          }
+        }
       } else {
-        // Fallback jika tidak ada data pemakaian
-        totalPengeluaran = keuanganData.data?.total_pengeluaran || 0;
+        // Fallback jika tidak ada data rekap
+        totalPemasukan = totalDonasi + totalSyahriah;
+        saldoAkhir = totalPemasukan - totalPengeluaran;
       }
-      
-      const saldoAkhir = totalPemasukan - totalPengeluaran;
 
       const newStats = {
         totalDonasi,
@@ -151,17 +180,31 @@ const AdminDashboard = () => {
         saldoAkhir,
       };
 
-      console.log('Calculated Stats:', newStats); // Debug log
-
       setStats(newStats);
 
-      // Generate chart data
+      // Generate chart data dengan filter
       generateChartData(
         newStats,
-        pemakaianList,
-        donasiData,
-        syahriahData
+        filteredRekap,
+        filteredDonasi,
+        filteredSyahriah,
+        filteredPemakaian
       );
+
+      // Extract available years dan months dari data rekap
+      if (rekapData.data && rekapData.data.length > 0) {
+        const periods = rekapData.data.map(item => item.periode).filter(Boolean);
+        const years = [...new Set(periods.map(p => p.split('-')[0]))].sort((a, b) => b - a);
+        setAvailableYears(years);
+        
+        // Update available months berdasarkan tahun yang dipilih
+        updateAvailableMonths(periods);
+      } else {
+        // Default years
+        const currentYear = new Date().getFullYear();
+        setAvailableYears([currentYear.toString()]);
+        setAvailableMonths([]);
+      }
 
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -170,88 +213,144 @@ const AdminDashboard = () => {
     }
   };
 
-  // Generate chart data from real API data
+  // Filter data berdasarkan periode yang dipilih
+  const filterDataByPeriod = (data, dateField) => {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
+      return data;
+    }
+    
+    return data.filter(item => {
+      let itemDate;
+      
+      if (dateField === 'bulan') {
+        // Handle syahriah data yang memiliki field 'bulan'
+        itemDate = item[dateField];
+        const [itemYear, itemMonth] = itemDate ? itemDate.split('-') : ['', ''];
+        
+        if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+          return itemYear === selectedYear;
+        }
+        
+        if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+          return itemMonth === selectedMonth;
+        }
+        
+        return itemYear === selectedYear && itemMonth === selectedMonth;
+      } else {
+        // Handle other data with date fields
+        itemDate = item[dateField] || item.created_at;
+        const dateObj = new Date(itemDate);
+        const itemYear = dateObj.getFullYear().toString();
+        const itemMonth = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        
+        if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+          return itemYear === selectedYear;
+        }
+        
+        if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+          return itemMonth === selectedMonth;
+        }
+        
+        return itemYear === selectedYear && itemMonth === selectedMonth;
+      }
+    });
+  };
+
+  // Filter data rekap berdasarkan periode
+  const filterRekapData = (rekapData) => {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') {
+      return rekapData;
+    }
+    
+    if (selectedMonth === 'semua' && selectedYear !== 'semua') {
+      // Filter hanya berdasarkan tahun
+      return rekapData.filter(item => item.periode?.startsWith(selectedYear));
+    }
+    
+    if (selectedYear === 'semua' && selectedMonth !== 'semua') {
+      // Filter hanya berdasarkan bulan (semua tahun)
+      return rekapData.filter(item => item.periode?.endsWith(`-${selectedMonth}`));
+    }
+    
+    // Filter berdasarkan tahun dan bulan
+    return rekapData.filter(item => item.periode === `${selectedYear}-${selectedMonth}`);
+  };
+
+  // Update available months ketika tahun berubah
+  const updateAvailableMonths = (periods) => {
+    if (selectedYear === 'semua') {
+      // Jika semua tahun, tampilkan semua bulan yang ada
+      const allMonths = [...new Set(
+        periods.map(p => p.split('-')[1])
+      )].sort();
+      setAvailableMonths(allMonths);
+    } else {
+      // Jika tahun spesifik, tampilkan bulan untuk tahun tersebut
+      const monthsForYear = [...new Set(
+        periods
+          .filter(p => p.startsWith(selectedYear))
+          .map(p => p.split('-')[1])
+      )].sort();
+      setAvailableMonths(monthsForYear);
+    }
+    
+    // Reset month to "semua" if selected month is not available for the new year
+    if (selectedMonth !== 'semua' && !availableMonths.includes(selectedMonth)) {
+      setSelectedMonth('semua');
+    }
+  };
+
+  // Generate chart data dengan filter yang benar
   const generateChartData = (
     statsData,
-    pemakaianList = [],
-    donasiData = {},
-    syahriahData = {}
+    filteredRekap = [],
+    filteredDonasi = [],
+    filteredSyahriah = [],
+    filteredPemakaian = []
   ) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
-    const displayedMonths = months.slice(0, currentMonth + 1);
-
-    // Process monthly financial data from APIs
-    const processMonthlyData = (apiData, dataType = 'donasi') => {
-      // Jika data adalah array (seperti di DataKeuangan)
-      if (Array.isArray(apiData)) {
-        const monthlyData = displayedMonths.map((month, index) => {
-          const monthNum = index + 1;
-          const year = new Date().getFullYear();
-          
-          const monthlyItems = apiData.filter(item => {
-            const itemDate = dataType === 'donasi' ? 
-              (item.waktu_catat || item.created_at) : 
-              (item.waktu_catat || item.created_at);
-            
-            if (!itemDate) return false;
-            
-            const date = new Date(itemDate);
-            return date.getMonth() === index && date.getFullYear() === year;
-          });
-          
-          return monthlyItems.reduce((sum, item) => sum + (item.nominal || 0), 0);
-        });
-        return monthlyData;
-      }
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Process monthly data dari filtered rekap
+    const processMonthlyData = () => {
+      const monthlyPemasukan = new Array(12).fill(0);
+      const monthlyPengeluaran = new Array(12).fill(0);
       
-      // Jika data memiliki struktur summary
-      if (apiData.data && Array.isArray(apiData.data)) {
-        return apiData.data.map(item => item.total || 0);
-      }
-      
-      // Fallback: generate realistic data based on total
-      const total = dataType === 'donasi' ? statsData.totalDonasi : statsData.totalSyahriah;
-      const monthlyAvg = total / (currentMonth + 1);
-      return displayedMonths.map((_, index) => 
-        Math.round(monthlyAvg * (0.7 + Math.random() * 0.6))
-      );
-    };
-
-    const monthlyDonasi = processMonthlyData(donasiData, 'donasi');
-    const monthlySyahriah = processMonthlyData(syahriahData, 'syahriah');
-
-    // Calculate monthly pemasukan (donasi + syahriah)
-    const monthlyPemasukan = displayedMonths.map((_, index) => 
-      (monthlyDonasi[index] || 0) + (monthlySyahriah[index] || 0)
-    );
-
-    // PERBAIKAN: Process monthly pengeluaran dari pemakaian data dengan struktur baru
-    let monthlyPengeluaran = displayedMonths.map((month, index) => {
-      const monthNum = index + 1;
-      const year = new Date().getFullYear();
-      
-      const monthlyPemakaian = pemakaianList.filter(item => {
-        const itemDate = item.tanggal_pemakaian || item.created_at;
-        if (!itemDate) return false;
-        
-        const date = new Date(itemDate);
-        return date.getMonth() === index && date.getFullYear() === year;
+      // Group data by month from filtered rekap
+      filteredRekap.forEach(rekap => {
+        if (rekap.periode) {
+          const [year, month] = rekap.periode.split('-');
+          const monthIndex = parseInt(month) - 1;
+          if (monthIndex >= 0 && monthIndex < 12) {
+            monthlyPemasukan[monthIndex] = rekap.pemasukan_total || 0;
+            monthlyPengeluaran[monthIndex] = rekap.pengeluaran_total || 0;
+          }
+        }
       });
       
-      // PERBAIKAN: Gunakan nominal_total sebagai dasar perhitungan
-      return monthlyPemakaian.reduce((sum, item) => {
-        return sum + (item.nominal_total || item.nominal || 0);
-      }, 0);
-    });
+      return { monthlyPemasukan, monthlyPengeluaran };
+    };
 
-    // Jika no pemakaian data, generate realistic data
-    const hasPengeluaranData = monthlyPengeluaran.some(amount => amount > 0);
-    if (!hasPengeluaranData) {
-      const monthlyAvg = statsData.totalPengeluaran / (currentMonth + 1);
-      monthlyPengeluaran = displayedMonths.map((_, index) => 
-        Math.round(monthlyAvg * (0.6 + Math.random() * 0.8))
-      );
+    const { monthlyPemasukan, monthlyPengeluaran } = processMonthlyData();
+
+    // Tentukan bulan yang akan ditampilkan berdasarkan filter
+    let displayedMonths = monthLabels;
+    if (selectedYear !== 'semua' && selectedMonth === 'semua') {
+      // Tampilkan semua bulan untuk tahun tertentu
+      displayedMonths = monthLabels;
+    } else if (selectedMonth !== 'semua') {
+      // Tampilkan bulan tertentu saja
+      const monthIndex = parseInt(selectedMonth) - 1;
+      displayedMonths = [monthLabels[monthIndex]];
+    }
+
+    // Filter data untuk ditampilkan
+    let displayedPemasukan = monthlyPemasukan;
+    let displayedPengeluaran = monthlyPengeluaran;
+    
+    if (selectedMonth !== 'semua') {
+      const monthIndex = parseInt(selectedMonth) - 1;
+      displayedPemasukan = [monthlyPemasukan[monthIndex]];
+      displayedPengeluaran = [monthlyPengeluaran[monthIndex]];
     }
 
     const pemasukanByMonth = {
@@ -259,7 +358,7 @@ const AdminDashboard = () => {
       datasets: [
         {
           label: 'Pemasukan',
-          data: monthlyPemasukan,
+          data: displayedPemasukan,
           borderColor: '#10B981',
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
           fill: true,
@@ -273,7 +372,7 @@ const AdminDashboard = () => {
       datasets: [
         {
           label: 'Pengeluaran',
-          data: monthlyPengeluaran,
+          data: displayedPengeluaran,
           borderColor: '#EF4444',
           backgroundColor: 'rgba(239, 68, 68, 0.1)',
           fill: true,
@@ -295,14 +394,14 @@ const AdminDashboard = () => {
       ]
     };
 
-    // Revenue sources chart - PERBAIKAN: Pastikan data syahriah ada
+    // Revenue sources chart
     const revenueSources = {
       labels: ['Donasi', 'Syahriah'],
       datasets: [
         {
           data: [
             statsData.totalDonasi || 0, 
-            statsData.totalSyahriah || 0 // Pastikan tidak undefined
+            statsData.totalSyahriah || 0
           ],
           backgroundColor: ['#8B5CF6', '#3B82F6'],
           borderWidth: 2,
@@ -320,8 +419,15 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    fetchAllData();
+  }, [selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    if (selectedYear !== 'semua') {
+      // Update available months when year changes
+      fetchAllData();
+    }
+  }, [selectedYear]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('id-ID', {
@@ -331,38 +437,105 @@ const AdminDashboard = () => {
     }).format(amount || 0);
   };
 
-  // Enhanced DonutChart with better sizing
-  const DonutChart = ({ data, size = 200 }) => {
+  const formatNumber = (num) => {
+    return new Intl.NumberFormat('id-ID').format(num);
+  };
+
+  // Enhanced DonutChart dengan handling untuk data tidak seimbang
+  const DonutChart = ({ data, size = 200, centerText = null }) => {
     if (!data || !data.datasets || !data.datasets[0]) {
       return (
-        <div className="flex items-center justify-center" style={{ width: size, height: size }}>
-          <div className="text-gray-400 text-sm">No data</div>
+        <div className="flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+          <div className="text-gray-400 text-sm mb-2">No data available</div>
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
         </div>
       );
     }
 
     const dataset = data.datasets[0];
+    const labels = data.labels || [];
     const total = dataset.data.reduce((sum, value) => sum + value, 0);
+    
+    // PERBAIKAN: Cek jika salah satu data adalah 0, bukan total 0
+    const hasData = dataset.data.some(value => value > 0);
+    
+    if (!hasData) {
+      // Jika semua data adalah 0
+      return (
+        <div className="flex flex-col items-center justify-center" style={{ width: size, height: size }}>
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+                <div className="relative">
+                  <div className="w-20 h-20 border-4 border-gray-200 rounded-full"></div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div className="text-gray-500 text-sm">Belum ada data</div>
+            </div>
+          </div>
+          
+          {/* Legend placeholder */}
+          <div className="mt-4 space-y-2 w-full">
+            {labels.map((label, index) => (
+              <div key={index} className="flex items-center justify-between text-sm opacity-50">
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: dataset.backgroundColor[index] }}
+                  ></div>
+                  <span className="text-gray-400">{label}</span>
+                </div>
+                <span className="font-medium text-gray-400">
+                  {formatCurrency(0)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     const radius = size / 2 - 10;
     let currentAngle = 0;
 
-    // If total is 0, show empty state
-    if (total === 0) {
-      return (
-        <div className="flex items-center justify-center" style={{ width: size, height: size }}>
-          <div className="text-gray-400 text-sm">No data</div>
-        </div>
-      );
+    // Hitung center text
+    let centerDisplayText = '';
+    if (centerText !== null) {
+      centerDisplayText = centerText;
+    } else if (labels.length === 2 && 
+               labels.includes('Pemasukan') && labels.includes('Pengeluaran')) {
+      const pemasukan = dataset.data[0] || 0;
+      const pengeluaran = dataset.data[1] || 0;
+      const selisih = pemasukan - pengeluaran;
+      centerDisplayText = formatCurrency(selisih);
+    } else {
+      centerDisplayText = total > 1000000 ? `${(total / 1000000).toFixed(1)}Juta` : 
+                         total > 1000 ? `${(total / 1000).toFixed(0)}K` : 
+                         formatNumber(total);
     }
 
     return (
       <div className="flex flex-col items-center">
         <svg width={size} height={size} className="mx-auto">
+          {/* PERBAIKAN: Handle kasus di mana salah satu data adalah 0 */}
           {dataset.data.map((value, index) => {
-            if (value === 0) return null;
+            // Jika value 0, kita tetap render tapi dengan logika khusus
+            if (value === 0 && total === 0) {
+              // Jika total 0, tidak render apapun
+              return null;
+            }
             
-            const percentage = value / total;
+            const percentage = value / Math.max(total, 1); // Pastikan tidak dibagi 0
             const angle = percentage * 360;
+            
+            // Jika angle 0 (data 0), skip rendering
+            if (angle === 0) return null;
+            
             const largeArcFlag = angle > 180 ? 1 : 0;
             
             const startAngle = currentAngle;
@@ -386,6 +559,20 @@ const AdminDashboard = () => {
               />
             );
           })}
+          
+          {/* PERBAIKAN: Jika hanya ada satu data non-zero, render lingkaran penuh */}
+          {dataset.data.filter(value => value > 0).length === 1 && 
+           dataset.data.findIndex(value => value > 0) >= 0 && (
+            <circle
+              cx={radius}
+              cy={radius}
+              r={radius}
+              fill={dataset.backgroundColor[dataset.data.findIndex(value => value > 0)]}
+              stroke={dataset.borderColor}
+              strokeWidth={dataset.borderWidth}
+            />
+          )}
+          
           <circle cx={radius} cy={radius} r={radius * 0.6} fill="white" />
           <text
             x={radius}
@@ -394,13 +581,13 @@ const AdminDashboard = () => {
             dominantBaseline="middle"
             className="text-lg font-bold fill-gray-700"
           >
-            {total > 1000000 ? `${(total / 1000000).toFixed(1)}Juta` : total > 1000 ? `${(total / 1000).toFixed(0)}K` : total}
+            {centerDisplayText}
           </text>
         </svg>
         
         {/* Legend */}
         <div className="mt-4 space-y-2 w-full">
-          {data.labels.map((label, index) => (
+          {labels.map((label, index) => (
             <div key={index} className="flex items-center justify-between text-sm">
               <div className="flex items-center">
                 <div 
@@ -419,10 +606,183 @@ const AdminDashboard = () => {
     );
   };
 
+  // Enhanced LineChart
+  const LineChart = ({ data, size = 300, title = '' }) => {
+    if (!data || !data.datasets || !data.datasets[0]) {
+      return (
+        <div className="flex flex-col items-center justify-center" style={{ width: '100%', height: size }}>
+          <div className="text-gray-400 text-sm mb-4">No data available</div>
+          <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+        </div>
+      );
+    }
+
+    const dataset = data.datasets[0];
+    const maxValue = Math.max(...dataset.data, 1);
+    const padding = 40;
+
+    const allZero = dataset.data.every(value => value === 0);
+    
+    if (allZero) {
+      return (
+        <div className="w-full">
+          <div className="relative" style={{ height: size }}>
+            {/* Grid lines */}
+            {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => (
+              <line
+                key={index}
+                x1={padding}
+                y1={padding + ratio * (size - 2 * padding)}
+                x2={`calc(100% - ${padding}px)`}
+                y2={padding + ratio * (size - 2 * padding)}
+                stroke="#E5E7EB"
+                strokeWidth="1"
+              />
+            ))}
+            
+            {/* Placeholder text */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="text-gray-500 text-sm">Belum ada data</div>
+              </div>
+            </div>
+
+            {/* X-axis labels */}
+            {data.labels && data.labels.map((label, index) => {
+              const x = padding + (index / (data.labels.length - 1 || 1)) * (100 - 2 * padding) + '%';
+              return (
+                <text
+                  key={index}
+                  x={x}
+                  y={size - padding / 2}
+                  textAnchor="middle"
+                  className="text-xs fill-gray-500"
+                >
+                  {label}
+                </text>
+              );
+            })}
+          </div>
+          
+          <div className="mt-2 text-center">
+            <div className="text-sm text-gray-600">
+              {title && <div className="font-medium mb-1">{title}</div>}
+              Total: {formatCurrency(0)}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="w-full">
+        <svg width="100%" height={size} className="mx-auto">
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => (
+            <line
+              key={index}
+              x1={padding}
+              y1={padding + ratio * (size - 2 * padding)}
+              x2={`calc(100% - ${padding}px)`}
+              y2={padding + ratio * (size - 2 * padding)}
+              stroke="#E5E7EB"
+              strokeWidth="1"
+            />
+          ))}
+
+          {/* Area */}
+          <polygon
+            points={`
+              ${padding},${size - padding} 
+              ${dataset.data.map((value, index) => {
+                const x = padding + (index / (dataset.data.length - 1 || 1)) * (100 - 2 * padding) + '%';
+                const y = padding + (1 - (value / maxValue)) * (size - 2 * padding);
+                return `${x} ${y}`;
+              }).join(' ')} 
+              calc(100% - ${padding}px),${size - padding}
+            `}
+            fill={dataset.backgroundColor}
+          />
+
+          {/* Line */}
+          <polyline
+            points={dataset.data.map((value, index) => {
+              const x = padding + (index / (dataset.data.length - 1 || 1)) * (100 - 2 * padding) + '%';
+              const y = padding + (1 - (value / maxValue)) * (size - 2 * padding);
+              return `${x},${y}`;
+            }).join(' ')}
+            fill="none"
+            stroke={dataset.borderColor}
+            strokeWidth="3"
+          />
+
+          {/* Data points */}
+          {dataset.data.map((value, index) => {
+            const x = padding + (index / (dataset.data.length - 1 || 1)) * (100 - 2 * padding) + '%';
+            const y = padding + (1 - (value / maxValue)) * (size - 2 * padding);
+            return (
+              <circle
+                key={index}
+                cx={x}
+                cy={y}
+                r="4"
+                fill={dataset.borderColor}
+                stroke="#fff"
+                strokeWidth="2"
+              />
+            );
+          })}
+
+          {/* X-axis labels */}
+          {data.labels && data.labels.map((label, index) => {
+            const x = padding + (index / (data.labels.length - 1 || 1)) * (100 - 2 * padding) + '%';
+            return (
+              <text
+                key={index}
+                x={x}
+                y={size - padding / 2}
+                textAnchor="middle"
+                className="text-xs fill-gray-500"
+              >
+                {label}
+              </text>
+            );
+          })}
+        </svg>
+        
+        {/* Chart title and summary */}
+        <div className="mt-2 text-center">
+          <div className="text-sm text-gray-600">
+            {title && <div className="font-medium mb-1">{title}</div>}
+            Total: {formatCurrency(dataset.data.reduce((sum, value) => sum + value, 0))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Get current period text untuk filter
+  const getCurrentPeriodText = () => {
+    if (selectedYear === 'semua' && selectedMonth === 'semua') return 'Semua Periode';
+    if (selectedMonth === 'semua') return `Tahun ${selectedYear}`;
+    if (selectedYear === 'semua') {
+      const monthObj = months.find(m => m.value === selectedMonth);
+      return `Bulan ${monthObj?.label || selectedMonth} (Semua Tahun)`;
+    }
+    const monthObj = months.find(m => m.value === selectedMonth);
+    return `${monthObj?.label || selectedMonth} ${selectedYear}`;
+  };
+
   if (loading) {
     return (
       <AuthDashboardLayout title="Dashboard Admin">
         <div className="animate-pulse space-y-6">
+          {/* Filter Section Skeleton */}
+          <div className="bg-gray-200 rounded-xl p-4 h-16"></div>
+          
           {/* Welcome Section Skeleton */}
           <div className="bg-gray-200 rounded-xl p-6 h-32"></div>
           
@@ -446,19 +806,81 @@ const AdminDashboard = () => {
 
   return (
     <AuthDashboardLayout title="Dashboard Admin">
-      {/* Welcome Section */}
-      <div className="mb-8 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
+      {/* Filter Section */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div className="text-sm opacity-90">Saldo Akhir</div>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats.saldoAkhir)}
+            <h2 className="text-lg font-semibold text-gray-800">Dashboard Admin</h2>
+            <p className="text-sm text-gray-600">Monitor keuangan dan donasi TPQ</p>
+            <div className="text-xs text-gray-500 mt-1">
+              Periode: <span className="font-medium">{getCurrentPeriodText()}</span>
             </div>
           </div>
-          <Icons.Chart className="w-8 h-8 opacity-80" />
-        </div>
-        <div className="text-xs opacity-80 mt-2">
-          Rasio kesehatan: {stats.totalPemasukan > 0 ? Math.round((stats.saldoAkhir / stats.totalPemasukan) * 100) : 0}%
+          <div className="flex flex-wrap gap-4">
+            {/* Filter Tahun */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Tahun:</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="semua">Semua Tahun</option>
+                {availableYears.map(year => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Bulan */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Bulan:</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={selectedYear === 'semua' && availableMonths.length === 0}
+              >
+                <option value="semua">Semua Bulan</option>
+                {selectedYear !== 'semua' && availableMonths.map(month => {
+                  const monthObj = months.find(m => m.value === month);
+                  return (
+                    <option key={month} value={month}>
+                      {monthObj ? monthObj.label : month}
+                    </option>
+                  );
+                })}
+                {selectedYear === 'semua' && availableMonths.length > 0 && (
+                  <>
+                    {availableMonths.map(month => {
+                      const monthObj = months.find(m => m.value === month);
+                      return (
+                        <option key={month} value={month}>
+                          {monthObj ? monthObj.label : month}
+                        </option>
+                      );
+                    })}
+                  </>
+                )}
+                {selectedYear === 'semua' && availableMonths.length === 0 && (
+                  <option value="">Pilih tahun terlebih dahulu</option>
+                )}
+              </select>
+            </div>
+
+            {/* Reset Filter */}
+            <button
+              onClick={() => {
+                setSelectedYear(new Date().getFullYear().toString());
+                setSelectedMonth('semua');
+              }}
+              className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
 
@@ -470,7 +892,11 @@ const AdminDashboard = () => {
             <h4 className="text-lg font-semibold text-gray-800">Pemasukan vs Pengeluaran</h4>
             <Icons.Finance />
           </div>
-          <DonutChart data={chartData.keuanganComparison} size={250} />
+          <DonutChart 
+            data={chartData.keuanganComparison} 
+            size={250}
+            centerText={formatCurrency(stats.totalPemasukan - stats.totalPengeluaran)}
+          />
         </div>
 
         {/* Revenue Sources */}
@@ -494,7 +920,9 @@ const AdminDashboard = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center p-4 bg-green-50 rounded-lg border border-green-200">
               <div className="flex items-center">
-                <Icons.Donasi className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-green-600 mr-3">
+                  <Icons.Donasi className="w-5 h-5" />
+                </div>
                 <div>
                   <div className="font-medium text-gray-900">Donasi</div>
                   <div className="text-sm text-gray-600">Sumbangan dari donatur</div>
@@ -506,7 +934,9 @@ const AdminDashboard = () => {
             </div>
             <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center">
-                <Icons.Money className="w-5 h-5 text-blue-600 mr-3" />
+                <div className="text-blue-600 mr-3">
+                  <Icons.Money className="w-5 h-5" />
+                </div>
                 <div>
                   <div className="font-medium text-gray-900">Syahriah</div>
                   <div className="text-sm text-gray-600">Pembayaran bulanan santri</div>

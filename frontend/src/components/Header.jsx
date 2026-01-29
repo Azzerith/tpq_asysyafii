@@ -16,7 +16,7 @@ const Header = () => {
   const dummyInformasiTPQ = {
     nama_tpq: "TPQ Asy-Syafi'i",
     tempat: "Campakoah",
-    deskripsi: "Membentuk generasi Qur'ani yang berakhlak mulia sesuai manhaj Ahlus Sunnah wal Jama'ah melalui pendidikan agama Islam yang berkualitas dan menyenangkan",
+    deskripsi: "Menjadi Lembaga Pendidikan yang Membentuk Generasi Berakhlak Mulia dengan Mempelajari Al Qur'an sejak dini.",
     logo: logoCircle
   }
 

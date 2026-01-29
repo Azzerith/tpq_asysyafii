@@ -207,12 +207,12 @@ const Hero = () => {
           {/* Text Content dengan Animasi */}
           <div className="lg:w-1/2 mb-12 lg:mb-0 space-y-8 pt-15" >
             {/* Badge dengan Animasi */}
-            <div className={`inline-flex items-center space-x-2 bg-green-100 border border-green-200 rounded-full px-4 py-2 transform transition-all duration-1000 ${isVisible ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0'}`}>
+            {/* <div className={`inline-flex items-center space-x-2 bg-green-100 border border-green-200 rounded-full px-4 py-2 transform transition-all duration-1000 ${isVisible ? 'translate-x-0 opacity-100' : '-translate-x-10 opacity-0'}`}>
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               <span className="text-green-700 font-medium text-sm">
                 {tpqData.deskripsi || "Taman Pendidikan Quran Terpercaya"}
               </span>
-            </div>
+            </div> */}
 
             {/* Main Heading */}
             <div className="space-y-4">

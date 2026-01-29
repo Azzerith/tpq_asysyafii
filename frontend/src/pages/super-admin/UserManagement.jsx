@@ -272,6 +272,16 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         Halaman {currentPage} dari {totalPages}
       </div>
       <div className="flex items-center space-x-2">
+      <select
+    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    value={itemsPerPage}
+    onChange={(e) => handleItemsPerPageChange(e.target.value)}
+  >
+    <option value="5">5 per halaman</option>
+    <option value="10">10 per halaman</option>
+    <option value="20">20 per halaman</option>
+    <option value="50">50 per halaman</option>
+  </select>
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
@@ -1312,7 +1322,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
   return (
     <AuthDashboardLayout title={'Manajemen User'}>
-      <div className="p-6">
+      <div className="p-0">
         {/* Filter dan Search Section */}
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -1334,16 +1344,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
               <option value="Aktif">Aktif</option>
               <option value="Nonaktif">Nonaktif</option>
             </select>
-            <select
-    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    value={itemsPerPage}
-    onChange={(e) => handleItemsPerPageChange(e.target.value)}
-  >
-    <option value="5">5 per halaman</option>
-    <option value="10">10 per halaman</option>
-    <option value="20">20 per halaman</option>
-    <option value="50">50 per halaman</option>
-  </select>
+            
             <button 
             onClick={openCreateModal}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"

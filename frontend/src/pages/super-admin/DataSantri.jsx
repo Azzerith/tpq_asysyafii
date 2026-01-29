@@ -578,7 +578,7 @@ const DataSantri = () => {
   if (loading) {
     return (
       <AuthDashboardLayout>
-        <div className="p-6">
+        <div className="p-0">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -600,7 +600,7 @@ const DataSantri = () => {
   if (error && !hasPermission('view_santri')) {
     return (
       <AuthDashboardLayout title="Data Santri">
-        <div className="p-6">
+        <div className="p-0">
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -617,7 +617,7 @@ const DataSantri = () => {
 
   return (
     <AuthDashboardLayout title="Data Santri">
-      <div className="p-6">  
+      <div className="p-0">  
 
         {/* Statistik */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">

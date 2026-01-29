@@ -543,7 +543,7 @@ const uploadToCloudinary = async (file) => {
   if (loading && berita.length === 0) {
     return (
       <AuthDashboardLayout>
-        <div className="p-6">
+        <div className="p-0">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -565,7 +565,7 @@ const uploadToCloudinary = async (file) => {
   if (error && berita.length === 0) {
     return (
       <AuthDashboardLayout>
-        <div className="p-6">
+        <div className="p-0">
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -588,7 +588,7 @@ const uploadToCloudinary = async (file) => {
 
   return (
     <AuthDashboardLayout title="Berita">
-      <div className="p-6">
+      <div className="p-0">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Manajemen Berita</h1>

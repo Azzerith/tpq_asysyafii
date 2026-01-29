@@ -453,7 +453,7 @@ const handleSave = async () => {
   if (loading) {
     return (
       <AuthDashboardLayout title="Informasi TPQ">
-        <div className="p-6">
+        <div className="p-0">
           <div className="animate-pulse space-y-6">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
             <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
@@ -680,7 +680,7 @@ const getOptimizedLogoUrl = (url, width = 400) => {
 
   return (
     <AuthDashboardLayout title="Informasi TPQ">
-      <div className="p-6">
+      <div className="p-0">
         
 
         {error && (

@@ -19,7 +19,7 @@ const Footer = () => {
     email: "tpqasysyafiicampakoah@gmail.com",
     alamat: "Jl. Raya Sangkanayu - Pengalusan KM 1 Campakoah RT 01 RW 01 Kec. Mrebet - Purbalingga",
     link_alamat: "https://www.google.com/maps/place/P87C%2BP97+Masjid+Babussalam,+Dusun+1,+Campakoah,+Kec.+Mrebet,+Kabupaten+Purbalingga,+Jawa+Tengah+53352/@-7.2858343,109.3210678,3a,75y,346.76h,84.15t/data=!3m5!1e1!3m3!1sw15DUHVo_eMq6XDOocNJKw!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fpanoid%3Dw15DUHVo_eMq6XDOocNJKw%26w%3D900%26h%3D600%26ll%3D0.0,0.0%26yaw%3D346.0%26pitch%3D6.0%26thumbfov%3D98%26cb_client%3Dgmm.iv.android!4m2!3m1!1s0x2e6ff78f4b53e5e1:0x892d1e560fff2985?utm_source=mstt_0&g_ep=CAESBzI1LjQ5LjYYACCBgQEqdSw5NDI2NzcyNyw5NDI3NTQwNyw5NDI5MjE5NSw5NDI5OTUzMiw5NDI4MDU3Niw5NDIwNzM5NCw5NDIwNzUwNiw5NDIwODUwNiw5NDIxODY1Myw5NDIyOTgzOSw5NDI3NTE2OCw5NDI3OTYxOSw5NDI5NTUwOEICSUQ%3D&skid=075f5c29-a73f-4469-9503-7bbf92981e98&g_st=ac",
-    hari_jam_belajar: "Senin - Kamis: 15.00 - 17.00\nJum'at: 14.00 - 16.00\nSabtu: 08.00 - 11.00\nMinggu: Libur"
+    hari_jam_belajar: "Senin - Sabtu Ba’da Dzuhur dan Ba’da Ashar"
   }
 
   const dummySosialMedia = [

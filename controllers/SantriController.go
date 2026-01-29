@@ -42,6 +42,7 @@ type UpdateSantriRequest struct {
 	Status       models.StatusSantri `json:"status"`
 	TanggalMasuk string        `json:"tanggal_masuk"` // Format: YYYY-MM-DD
 	TanggalKeluar *string      `json:"tanggal_keluar"` // Format: YYYY-MM-DD, bisa null
+	IDWali       *string       `json:"id_wali"`
 }
 
 // Helper function untuk get user ID dari context
@@ -335,7 +336,9 @@ func (ctrl *SantriController) UpdateSantri(c *gin.Context) {
 	userRole, _ := c.Get("role")
 	role := userRole.(string)
 	
-	if existingSantri.IDWali != userID && role != "admin" && role != "super_admin" {
+	// Untuk perubahan wali, hanya super_admin atau admin yang bisa
+	// Wali biasa tidak bisa mengubah wali santri
+	if role != "admin" && role != "super_admin" && existingSantri.IDWali != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Anda tidak memiliki akses untuk mengupdate data santri ini"})
 		return
 	}
@@ -386,6 +389,30 @@ func (ctrl *SantriController) UpdateSantri(c *gin.Context) {
 			}
 			existingSantri.TanggalKeluar = &tanggalKeluar
 		}
+	}
+
+	// Update IDWali jika ada dan user adalah admin/super_admin
+	if req.IDWali != nil && (role == "admin" || role == "super_admin") {
+		newWaliID := *req.IDWali
+		
+		// Cek apakah wali baru exists
+		var wali models.User
+		if err := ctrl.db.Where("id_user = ?", newWaliID).First(&wali).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Wali tidak ditemukan"})
+			return
+		}
+		
+		// Pastikan wali memiliki role wali
+		if wali.Role != models.RoleWali {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "User yang dipilih bukan wali"})
+			return
+		}
+		
+		existingSantri.IDWali = newWaliID
+	} else if req.IDWali != nil && (role != "admin" && role != "super_admin") {
+		// Jika bukan admin tapi mencoba mengubah wali
+		c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: Hanya admin yang dapat mengubah wali santri"})
+		return
 	}
 
 	// Simpan perubahan

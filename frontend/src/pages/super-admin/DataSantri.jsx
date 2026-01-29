@@ -487,6 +487,10 @@ const DataSantri = () => {
         tanggal_keluar: formData.tanggal_keluar || null
       };
 
+      if ((currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && formData.id_wali) {
+        updateData.id_wali = formData.id_wali;
+      }
+
       // Gunakan endpoint yang sesuai
       let endpoint;
       if (currentUser?.role === 'super_admin') {
@@ -511,23 +515,49 @@ const DataSantri = () => {
 
       const updatedSantri = await response.json();
 
+      // Ambil wali data untuk ditampilkan jika ada perubahan wali
+      let newWaliData = null;
+      if ((currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && 
+          formData.id_wali && 
+          formData.id_wali !== selectedSantri.idWali) {
+        // Cari wali dari waliOptions
+        const selectedWali = waliOptions.find(w => w.id_user === formData.id_wali);
+        if (selectedWali) {
+          newWaliData = {
+            nama: selectedWali.nama_lengkap,
+            email: selectedWali.email,
+            noTelp: selectedWali.no_telp
+          };
+        }
+      }
+
       // Update santri in the list
-      setSantri(santri.map(item => 
-        item.id === selectedSantri.id 
-          ? { 
-              ...item,
-              nama: updatedSantri.data?.nama_lengkap || updatedSantri.nama_lengkap || formData.nama_lengkap,
-              jenisKelamin: updatedSantri.data?.jenis_kelamin || updatedSantri.jenis_kelamin || formData.jenis_kelamin,
-              tempatLahir: updatedSantri.data?.tempat_lahir || updatedSantri.tempat_lahir || formData.tempat_lahir,
-              tanggalLahir: updatedSantri.data?.tanggal_lahir || updatedSantri.tanggal_lahir || formData.tanggal_lahir,
-              alamat: updatedSantri.data?.alamat || updatedSantri.alamat || formData.alamat,
-              foto: updatedSantri.data?.foto || updatedSantri.foto || formData.foto,
-              status: updatedSantri.data?.status || updatedSantri.status || formData.status,
-              tanggalMasuk: updatedSantri.data?.tanggal_masuk || updatedSantri.tanggal_masuk || formData.tanggal_masuk,
-              tanggalKeluar: updatedSantri.data?.tanggal_keluar || updatedSantri.tanggal_keluar || formData.tanggal_keluar
-            }
-          : item
-      ));
+      setSantri(santri.map(item => {
+        if (item.id === selectedSantri.id) {
+          const updatedItem = {
+            ...item,
+            nama: formData.nama_lengkap,
+            jenisKelamin: formData.jenis_kelamin,
+            tempatLahir: formData.tempat_lahir,
+            tanggalLahir: formData.tanggal_lahir,
+            alamat: formData.alamat,
+            foto: formData.foto,
+            status: formData.status,
+            tanggalMasuk: formData.tanggal_masuk,
+            tanggalKeluar: formData.tanggal_keluar || null
+          };
+  
+          // PERBAIKAN: Update wali jika ada perubahan
+          if ((currentUser?.role === 'admin' || currentUser?.role === 'super_admin') && 
+              formData.id_wali) {
+            updatedItem.idWali = formData.id_wali;
+            updatedItem.wali = newWaliData || item.wali;
+          }
+  
+          return updatedItem;
+        }
+        return item;
+      }));
       
       closeModals();
       showAlert('Berhasil', `Santri ${formData.nama_lengkap} berhasil diupdate`, 'success');
@@ -1195,6 +1225,31 @@ const DataSantri = () => {
                       placeholder="Masukkan alamat lengkap"
                     />
                   </div>
+                  {currentUser?.role !== 'wali' && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Wali Santri
+              </label>
+              <select
+                name="id_wali"
+                value={formData.id_wali || ''}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">Pilih Wali Santri</option>
+                {waliOptions.map(wali => (
+                  <option key={wali.id_user} value={wali.id_user}>
+                    {wali.nama_lengkap} - {wali.email}
+                  </option>
+                ))}
+              </select>
+              {selectedSantri.wali && (
+                <div className="mt-2 text-sm text-gray-500">
+                  Wali saat ini: <span className="font-medium">{selectedSantri.wali.nama} ({selectedSantri.wali.email})</span>
+                </div>
+              )}
+            </div>
+          )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

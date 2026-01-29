@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AuthDashboardLayout from '../../components/layout/AuthDashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -27,6 +27,10 @@ const DataSantri = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  const [waliSearchTerm, setWaliSearchTerm] = useState('');
+const [filteredWaliOptions, setFilteredWaliOptions] = useState([]);
+const [showWaliDropdown, setShowWaliDropdown] = useState(false);
 
   // State untuk alert
   const [alertMessage, setAlertMessage] = useState({
@@ -138,6 +142,215 @@ const DataSantri = () => {
       setLoading(false);
     }
   };
+  const DropdownWali = ({ 
+    value, 
+    onChange, 
+    error, 
+    name, 
+    disabled = false,
+    showDropdown,
+    setShowDropdown,
+    waliSearchTerm,
+    setWaliSearchTerm,
+    filteredWaliOptions,
+    selectedSantri 
+  }) => {
+    const dropdownRef = useRef(null);
+  
+    // Handle click outside to close dropdown
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+          setShowDropdown(false);
+        }
+      };
+  
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [setShowDropdown]);
+  
+    // Temukan wali yang terpilih
+    const selectedWali = filteredWaliOptions.find(wali => wali.id_user === value);
+  
+    return (
+      <div className="relative" ref={dropdownRef}>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Wali Santri *
+        </label>
+        
+        <div className="relative">
+          {/* Input yang terlihat */}
+          <div
+            onClick={() => !disabled && setShowDropdown(!showDropdown)}
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer flex items-center justify-between ${
+              error ? 'border-red-500' : 'border-gray-300'
+            } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+          >
+            <div className="flex items-center gap-3">
+              {selectedWali ? (
+                <>
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 font-medium text-sm">
+                      {selectedWali.nama_lengkap.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {selectedWali.nama_lengkap}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {selectedWali.email}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <span className="text-gray-500">Pilih Wali Santri</span>
+              )}
+            </div>
+            <svg 
+              className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+  
+          {/* Hidden input untuk form */}
+          <input
+            type="hidden"
+            name={name}
+            value={value || ''}
+            onChange={onChange}
+          />
+  
+          {/* Dropdown */}
+          {showDropdown && !disabled && (
+            <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-lg border border-gray-200 max-h-60 overflow-y-auto">
+              {/* Search input */}
+              <div className="sticky top-0 bg-white p-2 border-b border-gray-200">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={waliSearchTerm}
+                    onChange={(e) => setWaliSearchTerm(e.target.value)}
+                    placeholder="Cari wali berdasarkan nama atau email..."
+                    className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    autoFocus
+                  />
+                  <svg 
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+  
+              {/* Wali list */}
+              <div className="py-1">
+                {filteredWaliOptions.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-gray-500 text-sm">
+                    {waliSearchTerm ? 'Tidak ditemukan wali yang sesuai' : 'Tidak ada data wali'}
+                  </div>
+                ) : (
+                  filteredWaliOptions.map(wali => (
+                    <button
+                      key={wali.id_user}
+                      type="button"
+                      onClick={() => {
+                        onChange({
+                          target: {
+                            name,
+                            value: wali.id_user
+                          }
+                        });
+                        setShowDropdown(false);
+                        setWaliSearchTerm('');
+                      }}
+                      className={`w-full text-left px-3 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3 ${
+                        value === wali.id_user ? 'bg-blue-50' : ''
+                      }`}
+                    >
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-blue-600 font-medium text-sm">
+                          {wali.nama_lengkap.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {wali.nama_lengkap}
+                        </div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {wali.email}
+                          {wali.no_telp && ` • ${wali.no_telp}`}
+                        </div>
+                      </div>
+                      {value === wali.id_user && (
+                        <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+  
+              {/* Tambah wali baru link (opsional) */}
+              <div className="border-t border-gray-200 p-2">
+                <Link
+                  to="/dashboard/data-wali/tambah"
+                  className="flex items-center justify-center gap-2 text-sm text-blue-600 hover:text-blue-800 px-3 py-2 hover:bg-blue-50 rounded-lg transition-colors"
+                  onClick={() => setShowDropdown(false)}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Tambah Wali Baru
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+  
+        {error && (
+          <p className="text-red-500 text-xs mt-1">{error}</p>
+        )}
+  
+        {/* Tampilkan wali saat ini jika ada (untuk edit mode) */}
+        {selectedSantri?.wali && value && !selectedWali && (
+          <div className="mt-2 text-sm text-gray-500">
+            Wali saat ini: <span className="font-medium">{selectedSantri.wali.nama} ({selectedSantri.wali.email})</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleWaliSelect = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevFormData => ({
+      ...prevFormData,
+      [name]: value
+    }));
+    
+    // Clear error when user selects a wali
+    if (formErrors[name]) {
+      setFormErrors(prevErrors => ({
+        ...prevErrors,
+        [name]: ''
+      }));
+    }
+    
+    // Close dropdown setelah memilih
+    setShowWaliDropdown(false);
+    setWaliSearchTerm('');
+  };
 
   // Fetch wali options untuk dropdown
   const fetchWaliOptions = async () => {
@@ -157,6 +370,18 @@ const DataSantri = () => {
       console.error('Error fetching wali options:', err);
     }
   };
+
+  useEffect(() => {
+    if (waliSearchTerm.trim() === '') {
+      setFilteredWaliOptions(waliOptions);
+    } else {
+      const filtered = waliOptions.filter(wali => 
+        wali.nama_lengkap.toLowerCase().includes(waliSearchTerm.toLowerCase()) ||
+        wali.email.toLowerCase().includes(waliSearchTerm.toLowerCase())
+      );
+      setFilteredWaliOptions(filtered);
+    }
+  }, [waliSearchTerm, waliOptions]);
 
   // Check if current user has permission to access this page
   useEffect(() => {
@@ -345,6 +570,8 @@ const DataSantri = () => {
     setSelectedSantri(null);
     setFormErrors({});
     setActionLoading(false);
+    setShowWaliDropdown(false);
+  setWaliSearchTerm(''); 
   };
 
   // Handler untuk form input changes
@@ -1053,28 +1280,17 @@ const DataSantri = () => {
 
                   {currentUser?.role !== 'wali' && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Wali Santri *
-                      </label>
-                      <select
+                      <DropdownWali
                         name="id_wali"
                         value={formData.id_wali}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                          formErrors.id_wali ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        required
-                      >
-                        <option value="">Pilih Wali Santri</option>
-                        {waliOptions.map(wali => (
-                          <option key={wali.id_user} value={wali.id_user}>
-                            {wali.nama_lengkap} - {wali.email}
-                          </option>
-                        ))}
-                      </select>
-                      {formErrors.id_wali && (
-                        <p className="text-red-500 text-xs mt-1">{formErrors.id_wali}</p>
-                      )}
+                        onChange={handleWaliSelect}
+                        error={formErrors.id_wali}
+                        showDropdown={showWaliDropdown}
+                        setShowDropdown={setShowWaliDropdown}
+                        waliSearchTerm={waliSearchTerm}
+                        setWaliSearchTerm={setWaliSearchTerm}
+                        filteredWaliOptions={filteredWaliOptions}
+                      />
                     </div>
                   )}
 
@@ -1226,30 +1442,21 @@ const DataSantri = () => {
                     />
                   </div>
                   {currentUser?.role !== 'wali' && (
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Wali Santri
-              </label>
-              <select
-                name="id_wali"
-                value={formData.id_wali || ''}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Pilih Wali Santri</option>
-                {waliOptions.map(wali => (
-                  <option key={wali.id_user} value={wali.id_user}>
-                    {wali.nama_lengkap} - {wali.email}
-                  </option>
-                ))}
-              </select>
-              {selectedSantri.wali && (
-                <div className="mt-2 text-sm text-gray-500">
-                  Wali saat ini: <span className="font-medium">{selectedSantri.wali.nama} ({selectedSantri.wali.email})</span>
-                </div>
-              )}
-            </div>
-          )}
+                    <div className="md:col-span-2">
+                      <DropdownWali
+                        name="id_wali"
+                        value={formData.id_wali}
+                        onChange={handleWaliSelect}
+                        error={formErrors.id_wali}
+                        showDropdown={showWaliDropdown}
+                        setShowDropdown={setShowWaliDropdown}
+                        waliSearchTerm={waliSearchTerm}
+                        setWaliSearchTerm={setWaliSearchTerm}
+                        filteredWaliOptions={filteredWaliOptions}
+                        selectedSantri={selectedSantri}
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

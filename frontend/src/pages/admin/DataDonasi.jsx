@@ -37,6 +37,10 @@ const DataDonasi = () => {
     const now = new Date();
     const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    // +1 hari
+  startDate.setDate(startDate.getDate() + 1);
+  endDate.setDate(endDate.getDate() + 1);
     
     return {
       start: startDate.toISOString().split('T')[0],

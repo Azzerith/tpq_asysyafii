@@ -1214,7 +1214,7 @@ const renderContent = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-8xl mx-auto">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         {/* Pemasukan Syahriah */}

@@ -306,7 +306,7 @@ const Keluarga = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-green-900 mb-2">Data Keluarga</h1>

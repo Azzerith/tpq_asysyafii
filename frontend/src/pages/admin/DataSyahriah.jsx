@@ -1366,7 +1366,7 @@ const DataSyahriah = () => {
             />
           </div>
           <div className="flex items-end">
-            <button
+            {/* <button
               onClick={() => {
                 setFilterNama('');
                 setFilterBulanTahun('');
@@ -1375,7 +1375,7 @@ const DataSyahriah = () => {
             >
               {icons.filter}
               <span className="ml-2">Tampilkan Semua</span>
-            </button>
+            </button> */}
           </div>
           <div className="flex items-end">
             {isFilterActive() && (
